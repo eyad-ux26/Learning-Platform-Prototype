@@ -256,7 +256,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
             <span className="inline-flex items-center gap-1"><Clock size={12} aria-hidden /> about {activity.estimatedMinutes} min</span>
             {view.bundle.meta.freeSampleActivityIds.includes(activity.id) && <Badge tone="accent">{t.access.free}</Badge>}
             {activity.kind === "alternative" && <Badge>Alternative practice</Badge>}
-            {mode === "preview" && <Badge tone="ai">Draft preview · v{version}</Badge>}
+            {mode === "preview" && <Badge tone="ai">Admin preview · v{version}</Badge>}
           </div>
           <h1 className="mt-1 text-xl font-semibold tracking-tight text-fg sm:text-2xl">{activity.title}</h1>
         </div>

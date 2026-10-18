@@ -40,7 +40,7 @@ function MarkIcon({ mark }: { mark: HotspotMark }) {
   return null;
 }
 
-function Hotspot({ id, mode, children, inline }: { id?: string; mode?: HotspotMode; children: React.ReactNode; inline?: boolean }) {
+function Hotspot({ id, mode, children, inset }: { id?: string; mode?: HotspotMode; children: React.ReactNode; inset?: boolean }) {
   if (!id || !mode) return <>{children}</>;
   const mark = mode.marks[id] ?? "unreviewed";
   const selected = mode.selected === id;
@@ -52,15 +52,16 @@ function Hotspot({ id, mode, children, inline }: { id?: string; mode?: HotspotMo
       aria-pressed={selected}
       aria-label={`Element ${mode.numbers[id]}: ${mode.labels[id]}, ${markText}`}
       className={cn(
-        "relative block w-full rounded-md text-start outline-2 outline-offset-2 transition-[outline-color,box-shadow]",
+        "relative block w-full rounded-md text-start outline-2 transition-[outline-color,box-shadow]",
+        inset ? "outline-offset-[-3px]" : "-m-1.5 w-[calc(100%+0.75rem)] p-1.5 outline-offset-0",
         markStyle[mark],
-        selected && "shadow-[0_0_0_4px_rgba(124,139,245,0.35)]",
-        inline && "inline-block w-auto",
+        selected && (inset ? "bg-[#eef0ff]" : "shadow-[0_0_0_4px_rgba(124,139,245,0.35)]"),
       )}
     >
       <span
         className={cn(
-          "absolute -start-2.5 -top-2.5 z-10 flex h-5 min-w-5 items-center justify-center gap-0.5 rounded-full px-1 text-[11px] font-bold text-white",
+          inset ? "absolute end-2 top-2 z-10 flex" : "absolute -start-2.5 -top-2.5 z-10 flex",
+          " h-5 min-w-5 items-center justify-center gap-0.5 rounded-full px-1 text-[11px] font-bold text-white",
           mark === "acceptable" || mark === "correct" ? "bg-[#1e7a4c]" : mark === "problematic" || mark === "incorrect" ? "bg-[#b42318]" : "bg-[#5865d8]",
         )}
         aria-hidden
@@ -118,11 +119,11 @@ function BlockView({ block, mode }: { block: Block; mode?: HotspotMode }) {
       );
     case "list":
       return wrap(
-        <ul className="divide-y divide-pv-line overflow-hidden rounded-md border border-pv-line bg-pv-surface">
+        <ul className="divide-y divide-pv-line rounded-md border border-pv-line bg-pv-surface">
           {block.items.map((item, i) => (
             <li key={i} className="p-0">
-              <Hotspot id={item.hotspot} mode={mode}>
-                <div className={cn("flex items-start gap-3 px-3 py-2.5", item.tone === "ai" && "bg-[#faf7ff]")}>
+              <Hotspot id={item.hotspot} mode={mode} inset>
+                <div className={cn("flex items-start gap-3 px-3 py-2.5", item.hotspot && mode && "pe-12", item.tone === "ai" && "bg-[#faf7ff]")}>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-pv-fg">{item.primary}</div>
                     {item.secondary && <div className={cn("text-xs", item.tone === "ai" ? "text-pv-ai" : "text-pv-muted")}>{item.secondary}</div>}

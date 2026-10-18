@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { canAccessActivity, canAccessConcept } from "@/domain/access";
-import { isLearnerVisible, publishDraft, versionFor } from "@/domain/catalog";
+import { isLearnerVisible, publishDraft, saveDraft, versionFor } from "@/domain/catalog";
 import { submitAttempt } from "@/domain/evidence";
 import { derivePathCompletion, deriveSkillProgress, type SkillProgress } from "@/domain/mastery";
 import type { Activity, ActivityResponse, Attempt, CatalogEntry, ExploreConcept, LearnerRecord, PathBundle, PublishedVersion } from "@/domain/types";
@@ -19,7 +19,7 @@ interface AppContextValue {
   loadStatus: LoadStatus;
   dismissLoadStatus: () => void;
   submit: (input: { bundle: PathBundle; version: number; activity: Activity; response: ActivityResponse; hintsUsed: boolean; solutionRevealed: boolean }) => Attempt;
-  publish: (pathId: string, note: string) => { published: boolean; report: ValidationReport };
+  publish: (pathId: string, note: string, bundle?: PathBundle) => { published: boolean; report: ValidationReport };
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -74,14 +74,17 @@ export function AppProvider({ children, repository }: { children: ReactNode; rep
     return attempt;
   }, []);
 
-  const publish = useCallback<AppContextValue["publish"]>((pathId, note) => {
+  const publish = useCallback<AppContextValue["publish"]>((pathId, note, bundle) => {
     const s = stateRef.current!;
-    const entry = s.catalog.entries[pathId];
+    const now = new Date().toISOString();
+    const entry = bundle ? saveDraft(s.catalog.entries[pathId], bundle, now) : s.catalog.entries[pathId];
     const by = s.learners[s.activeLearnerId].name;
-    const r = publishDraft(entry, by, note, new Date().toISOString());
+    const r = publishDraft(entry, by, note, now);
     if (r.published) {
       const v = r.entry.versions[r.entry.versions.length - 1].version;
       dispatch({ type: "catalog/setEntry", entry: r.entry, event: `${pathId} v${v}` });
+    } else if (bundle) {
+      dispatch({ type: "catalog/setEntry", entry });
     }
     return { published: r.published, report: r.report };
   }, []);
