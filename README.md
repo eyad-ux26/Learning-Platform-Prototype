@@ -19,6 +19,17 @@ npm run build && npm start
 
 Use **Demo controls** (footer link, or `/demo`) to switch between seeded scenarios: new free learner, returning subscriber, learner with a skill gap, learner close to completion, editor, administrator, and expired subscription. You can also reset one learner or all data there.
 
+## Hosted version (GitHub Pages)
+
+Every push to `claude/focused-rubin-ug2jwz` runs `.github/workflows/pages.yml`, which tests, builds a static export and deploys it to:
+
+**https://eyad-ux26.github.io/Learning-Platform-Prototype/**
+
+- `npm run build:pages` builds the static site into `out/` (set `NEXT_PUBLIC_BASE_PATH=/Learning-Platform-Prototype` to match the Pages sub-path).
+- All seeded paths, lessons and activities are pre-rendered. Paths created in the prototype itself (new drafts, imports) exist only in the viewer's browser, so `src/app/not-found.tsx` renders their pages client-side from the URL.
+- Data still lives only in each visitor's browser; nothing is shared between viewers.
+- If the first deployment fails with a Pages error, enable Pages once in the repository's **Settings → Pages → Source: GitHub Actions**, then re-run the workflow.
+
 ## Checks
 
 ```bash
