@@ -95,7 +95,7 @@ export function ExploreView({
             </Notice>
           ) : (
             <>
-              {concept.video && <VideoBlock video={concept.video} />}
+              {concept.video && <VideoBlock video={concept.video} transcriptOpen={learner.preferences.captions} />}
 
               <div className="mt-8 space-y-7">
                 {concept.sections.map((s) => (
@@ -168,9 +168,9 @@ export function ExploreView({
  * Short-video lesson format. No video assets exist in this prototype, so lessons
  * without `src` show an explicitly labelled placeholder: no fake player.
  */
-function VideoBlock({ video }: { video: VideoLesson }) {
+function VideoBlock({ video, transcriptOpen }: { video: VideoLesson; transcriptOpen: boolean }) {
   const [failed, setFailed] = useState(false);
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(transcriptOpen);
   const placeholder = !video.src || failed;
   return (
     <section className="mt-8 overflow-hidden rounded-xl border border-line bg-surface" aria-labelledby="video-title">

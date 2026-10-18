@@ -93,7 +93,7 @@ export function seedLearner(scenarioId: string): LearnerRecord {
         activityId: "bench-summary",
         contentVersion: 1,
         response: { template: "design-bench", selections: { presentation: "block", uncertainty: "specific", evidence: "source" } },
-        ui: { previewSourceOpen: true },
+        ui: { preview: { status: "proposed", sourceOpen: true, history: [], log: [], toast: null } },
         hintsUsed: false,
         solutionRevealed: false,
         updatedAt: "2026-03-03T19:42:00.000Z",

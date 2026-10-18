@@ -18,6 +18,8 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { learner, loadStatus, dismissLoadStatus } = useApp();
   const subscribed = isSubscriptionActive(learner.access);
+  // The practice workspace has its own bottom action bar on small screens.
+  const inWorkspace = pathname.includes("/practice/");
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -76,7 +78,7 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
-      <main id="main" className="flex-1 pb-20 md:pb-0">
+      <main id="main" className={cn("flex-1 md:pb-0", inWorkspace ? "pb-0" : "pb-20")}>
         {children}
       </main>
 
@@ -90,14 +92,14 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
       </footer>
 
       {/* Mobile bottom navigation */}
-      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-line bg-canvas/95 md:hidden">
+      {!inWorkspace && <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-line bg-canvas/95 md:hidden">
         {NAV.map(({ href, label, icon: Icon, match }) => (
           <Link key={href} href={href} aria-current={match(pathname) ? "page" : undefined} className={cn("flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs", match(pathname) ? "text-fg" : "text-subtle")}>
             <Icon size={18} aria-hidden />
             {label}
           </Link>
         ))}
-      </nav>
+      </nav>}
     </div>
   );
 }

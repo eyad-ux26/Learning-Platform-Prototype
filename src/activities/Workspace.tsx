@@ -39,7 +39,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   const [phase, setPhase] = useState<"working" | "feedback">("working");
   const [result, setResult] = useState<{ attempt?: Attempt; evaluation: Evaluation } | null>(null);
   const [missing, setMissing] = useState<string[] | null>(null);
-  const [section, setSection] = useState<Section>("brief");
+  const [section, setSection] = useState<Section>(usableDraft ? "controls" : "brief");
   const [helpOpen, setHelpOpen] = useState(false);
   const [confirmReveal, setConfirmReveal] = useState(false);
   const [confirmHint, setConfirmHint] = useState(false);
@@ -238,7 +238,9 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
     </div>
   );
 
+  // < lg: one section at a time. lg: Brief alone, or response + interface side by side. xl: all three columns.
   const vis = (s: Section) => (section === s ? "block" : "hidden");
+  const work = section !== "brief" ? "lg:block" : "";
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 pb-28 pt-4 sm:px-6 lg:pb-10">
@@ -279,16 +281,16 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
       )}
 
       {/* Mobile and tablet section tabs */}
-      <div className="sticky top-16 z-30 -mx-4 mt-4 bg-canvas/95 px-4 py-2 lg:hidden">
+      <div className="sticky top-16 z-30 -mx-4 mt-4 bg-canvas/95 px-4 py-2 xl:hidden">
         <Tabs label="Workspace sections" tabs={tabs} value={section} onChange={setSection} />
       </div>
 
       <div className={cn("mt-4 grid gap-6", "lg:grid-cols-[minmax(320px,400px)_1fr] xl:grid-cols-[300px_minmax(340px,400px)_1fr]")}>
-        <aside className={cn(vis("brief"), "lg:col-span-2 lg:block xl:col-span-1")} aria-label="Brief">
+        <aside className={cn(vis("brief"), "lg:col-span-2 xl:col-span-1 xl:block")} aria-label="Brief">
           <div className="xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pe-1">{brief}</div>
         </aside>
 
-        <section className={cn(phase === "feedback" ? vis("feedback") : vis("controls"), "lg:block")} aria-label={phase === "feedback" ? "Feedback" : controlsLabel}>
+        <section className={cn(phase === "feedback" ? vis("feedback") : vis("controls"), work, "xl:block")} aria-label={phase === "feedback" ? "Feedback" : controlsLabel}>
           {phase === "feedback" && result ? (
             <div ref={feedbackRef}>
               <FeedbackPanel view={view} activity={activity} attempt={result.attempt} evaluation={result.evaluation} mode={mode} onRetry={retry} />
@@ -308,7 +310,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
           )}
         </section>
 
-        <section className={cn(vis("stage"), "lg:block")} aria-label="Interface">
+        <section className={cn(vis("stage"), work, "xl:block")} aria-label="Interface">
           <div className="lg:sticky lg:top-20">
             {stage}
             {phase === "feedback" && activity.template === "critique" && <div className="mt-4">{controls}</div>}

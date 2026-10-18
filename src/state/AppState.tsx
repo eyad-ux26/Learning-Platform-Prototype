@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
 import { canAccessActivity, canAccessConcept } from "@/domain/access";
 import { isLearnerVisible, publishDraft, saveDraft, versionFor } from "@/domain/catalog";
 import { submitAttempt } from "@/domain/evidence";
@@ -24,27 +24,33 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-function rootReducer(state: PrototypeState | null, action: Action): PrototypeState | null {
-  if (action.type === "replace") return action.state;
-  if (!state) return state;
-  return reducer(state, action);
+type RootAction = Action | { type: "loaded"; state: PrototypeState; status: LoadStatus } | { type: "dismissLoadStatus" };
+interface Root {
+  app: PrototypeState | null;
+  loadStatus: LoadStatus;
+}
+
+function rootReducer(root: Root, action: RootAction): Root {
+  if (action.type === "loaded") return { app: action.state, loadStatus: action.status };
+  if (action.type === "dismissLoadStatus") return { ...root, loadStatus: "restored" };
+  if (action.type === "replace") return { ...root, app: action.state };
+  if (!root.app) return root;
+  return { ...root, app: reducer(root.app, action) };
 }
 
 export function AppProvider({ children, repository }: { children: ReactNode; repository?: PrototypeRepository }) {
   const repo = useMemo(() => repository ?? createLocalStorageRepository(), [repository]);
-  const [state, dispatch] = useReducer(rootReducer, null);
-  const [loadStatus, setLoadStatus] = useState<LoadStatus>("fresh");
+  const [{ app: state, loadStatus }, dispatch] = useReducer(rootReducer, { app: null, loadStatus: "fresh" });
   const stateRef = useRef<PrototypeState | null>(null);
-  stateRef.current = state;
 
   // Load only on the client, after hydration, so server and first client render match.
   useEffect(() => {
     const { state: loaded, status } = repo.load();
-    dispatch({ type: "replace", state: loaded });
-    setLoadStatus(status);
+    dispatch({ type: "loaded", state: loaded, status });
   }, [repo]);
 
   useEffect(() => {
+    stateRef.current = state;
     if (state) repo.save(state);
   }, [state, repo]);
 
@@ -98,7 +104,7 @@ export function AppProvider({ children, repository }: { children: ReactNode; rep
   }
 
   return (
-    <AppContext.Provider value={{ state, learner, dispatch, loadStatus, dismissLoadStatus: () => setLoadStatus("restored"), submit, publish }}>{children}</AppContext.Provider>
+    <AppContext.Provider value={{ state, learner, dispatch, loadStatus, dismissLoadStatus: () => dispatch({ type: "dismissLoadStatus" }), submit, publish }}>{children}</AppContext.Provider>
   );
 }
 

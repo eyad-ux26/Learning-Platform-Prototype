@@ -126,10 +126,11 @@ export function ProposalPreview({
     else commit(`Applied when the user selected ${p.kind === "bulk" ? "Apply" : "Accept"}.`);
   };
 
+  // Field and text suggestions return to their proposed state; changes that reached other people stay reverted.
   const undo = (how: string) =>
     onChange({
       ...state,
-      status: "reverted",
+      status: p.kind === "field" || p.kind === "text" ? "proposed" : "reverted",
       toast: null,
       log: [...state.log, how],
       history: state.history.length ? [...state.history, `${p.label}: reverted`] : state.history,

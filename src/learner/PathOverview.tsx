@@ -95,9 +95,11 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
                 {view.completion.complete ? "Complete. Every required skill is Mastered." : `${view.completion.mastered.length} of ${bundle.requiredSkillIds.length} skills Mastered.`}
               </p>
               {!view.completion.complete && <p className="mt-1 text-xs text-subtle">Lessons viewed and activities attempted don’t complete a path on their own.</p>}
-              <Link href={`${base}/skills`} className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-                See evidence by skill <ArrowRight size={14} aria-hidden />
-              </Link>
+              {!preview && (
+                <Link href={`${base}/skills`} className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
+                  See evidence by skill <ArrowRight size={14} aria-hidden />
+                </Link>
+              )}
             </Card>
           ) : (
             <Notice tone="warn" icon={<Info size={16} />} title={t.access.notIncluded}>

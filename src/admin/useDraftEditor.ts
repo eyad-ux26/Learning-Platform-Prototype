@@ -10,12 +10,10 @@ export function useDraftEditor(pathId: string) {
   const { state, dispatch } = useApp();
   const entry = state.catalog.entries[pathId];
   const base = useMemo(() => (entry ? workingCopy(entry) : undefined), [entry]);
-  const [form, setFormState] = useState<PathBundle | undefined>(base);
-  const [dirty, setDirty] = useState(false);
-
-  useEffect(() => {
-    if (!dirty) setFormState(base);
-  }, [base, dirty]);
+  // Local edits exist only while dirty; otherwise the form IS the stored working copy.
+  const [local, setLocal] = useState<PathBundle | undefined>();
+  const dirty = local !== undefined;
+  const form = local ?? base;
 
   useEffect(() => {
     if (!dirty) return;
@@ -24,21 +22,21 @@ export function useDraftEditor(pathId: string) {
     return () => window.removeEventListener("beforeunload", h);
   }, [dirty]);
 
-  const update = useCallback((fn: (b: PathBundle) => PathBundle) => {
-    setFormState((f) => (f ? fn(structuredClone(f)) : f));
-    setDirty(true);
-  }, []);
+  const update = useCallback(
+    (fn: (b: PathBundle) => PathBundle) => setLocal((cur) => {
+      const from = cur ?? base;
+      return from ? fn(structuredClone(from)) : cur;
+    }),
+    [base],
+  );
 
   const save = useCallback(() => {
     if (!form) return;
     dispatch({ type: "catalog/saveDraft", pathId, bundle: form, now: new Date().toISOString() });
-    setDirty(false);
+    setLocal(undefined);
   }, [dispatch, form, pathId]);
 
-  const revert = useCallback(() => {
-    setFormState(base);
-    setDirty(false);
-  }, [base]);
+  const revert = useCallback(() => setLocal(undefined), []);
 
   return { entry, form, update, dirty, save, revert };
 }

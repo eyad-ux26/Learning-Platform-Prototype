@@ -70,18 +70,20 @@ export function FeedbackPanel({
         {evaluation.skills.map((s) => {
           const p = view.progress[s.skillId];
           return (
-            <div key={s.skillId} className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface p-3">
-              <span className={cn("inline-flex items-center gap-1.5 text-sm font-medium", s.met ? "text-ok" : "text-warn")}>
-                {s.met ? <CheckCircle2 size={16} aria-hidden /> : <CircleAlert size={16} aria-hidden />}
-                {s.met ? "Criteria met" : "Not met yet"}
-              </span>
-              <span className="min-w-0 flex-1 text-sm text-fg">{skillName(s.skillId)}</span>
-              {mode === "learner" && p && (
-                <span className="flex flex-wrap items-center gap-2">
-                  <EvidenceMeter progress={p} compact />
-                  <SkillStatusBadge status={p.status} />
+            <div key={s.skillId} className="rounded-xl border border-line bg-surface p-3">
+              <p className="text-sm font-medium text-fg">{skillName(s.skillId)}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className={cn("inline-flex items-center gap-1.5 text-sm", s.met ? "text-ok" : "text-warn")}>
+                  {s.met ? <CheckCircle2 size={15} aria-hidden /> : <CircleAlert size={15} aria-hidden />}
+                  {s.met ? "Criteria met in this attempt" : "Not met yet"}
                 </span>
-              )}
+                {mode === "learner" && p && (
+                  <span className="ms-auto flex items-center gap-2">
+                    <EvidenceMeter progress={p} compact />
+                    <SkillStatusBadge status={p.status} />
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}

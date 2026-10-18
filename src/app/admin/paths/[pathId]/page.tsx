@@ -2,57 +2,35 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { AlertTriangle, Archive, CheckCircle2, Eye, Rocket, Save, Undo2, XCircle } from "lucide-react";
-import { clone, hasUnpublishedChanges, latestPublished } from "@/domain/catalog";
+import { hasUnpublishedChanges, latestPublished } from "@/domain/catalog";
 import type { CoverId, IconId, Level, PathBundle } from "@/domain/types";
 import { validateBundle, type ValidationReport } from "@/domain/validation";
 import { AdminHeader, useCanPublish } from "@/admin/AdminShell";
-import { statusLabel, workingCopy } from "@/admin/helpers";
+import { statusLabel } from "@/admin/helpers";
+import { useDraftEditor } from "@/admin/useDraftEditor";
 import { COVER_IDS, ICONS, PathCover } from "@/components/PathArt";
 import { useApp } from "@/state/AppState";
 import { Badge, Button, Card, Dialog, Field, LinkButton, Notice, inputClass, cn } from "@/components/ui";
 
 export default function PathEditorPage() {
   const { pathId } = useParams<{ pathId: string }>();
-  const { state, dispatch, publish } = useApp();
+  const { dispatch, publish } = useApp();
   const canPublish = useCanPublish();
-  const entry = state.catalog.entries[pathId];
-  const base = useMemo(() => (entry ? workingCopy(entry) : undefined), [entry]);
-  const [form, setForm] = useState<PathBundle | undefined>(base);
-  const [dirty, setDirty] = useState(false);
+  const { entry, form, update, dirty, save, revert } = useDraftEditor(pathId);
   const [publishOpen, setPublishOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [note, setNote] = useState("");
   const [result, setResult] = useState<{ published: boolean; report: ValidationReport } | null>(null);
 
-  // Re-sync when the stored working copy changes and there are no local edits.
-  useEffect(() => {
-    if (!dirty) setForm(base);
-  }, [base, dirty]);
-
-  useEffect(() => {
-    if (!dirty) return;
-    const h = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", h);
-    return () => window.removeEventListener("beforeunload", h);
-  }, [dirty]);
-
   if (!entry || !form) return <p className="text-muted">Path not found. <Link href="/admin/paths" className="text-accent">Back to paths</Link></p>;
 
   const m = form.meta;
-  const setMeta = (patch: Partial<PathBundle["meta"]>) => {
-    setForm({ ...form, meta: { ...m, ...patch } });
-    setDirty(true);
-  };
-  const save = () => {
-    dispatch({ type: "catalog/saveDraft", pathId, bundle: form, now: new Date().toISOString() });
-    setDirty(false);
-  };
+  const setMeta = (patch: Partial<PathBundle["meta"]>) => update((b) => ({ ...b, meta: { ...b.meta, ...patch } }));
   const discard = () => {
     if (entry.versions.length) dispatch({ type: "catalog/discardDraft", pathId });
-    setForm(entry.versions.length ? clone(latestPublished(entry)!.bundle) : base);
-    setDirty(false);
+    revert();
   };
   const report = validateBundle(form);
   const s = statusLabel(entry);
@@ -61,7 +39,7 @@ export default function PathEditorPage() {
 
   const doPublish = () => {
     const r = publish(pathId, note, dirty ? form : undefined);
-    setDirty(false);
+    revert();
     setResult(r);
     if (r.published) {
       setPublishOpen(false);
@@ -84,7 +62,7 @@ export default function PathEditorPage() {
       />
       {!canPublish && <Notice tone="neutral" className="mb-4">As an Editor you can edit drafts and preview them. Publishing, unpublishing and archiving need the Admin role.</Notice>}
       {dirty && (
-        <Notice tone="warn" className="mb-4" icon={<AlertTriangle size={16} />} title="Unsaved changes" action={<div className="flex gap-2"><Button size="sm" variant="primary" onClick={save}><Save size={14} aria-hidden /> Save draft</Button><Button size="sm" variant="ghost" onClick={() => { setForm(base); setDirty(false); }}>Undo unsaved edits</Button></div>}>
+        <Notice tone="warn" className="mb-4" icon={<AlertTriangle size={16} />} title="Unsaved changes" action={<div className="flex gap-2"><Button size="sm" variant="primary" onClick={save}><Save size={14} aria-hidden /> Save draft</Button><Button size="sm" variant="ghost" onClick={revert}>Undo unsaved edits</Button></div>}>
           Preview and learners don’t see these edits until you save the draft, and learners don’t see the draft until it is published.
         </Notice>
       )}
@@ -186,7 +164,7 @@ export default function PathEditorPage() {
                   {report.coverage.map((c) => (
                     <li key={c.skillId} className="flex justify-between gap-2">
                       <span className="text-muted">{c.skillName}</span>
-                      <span className={c.sufficient ? "text-ok" : "text-bad"}>{c.contexts.length} contexts {c.sufficient ? "✓" : "✗"}</span>
+                      <span className={cn("shrink-0 whitespace-nowrap", c.sufficient ? "text-ok" : "text-bad")}>{c.contexts.length} contexts {c.sufficient ? "✓" : "✗"}</span>
                     </li>
                   ))}
                 </ul>
