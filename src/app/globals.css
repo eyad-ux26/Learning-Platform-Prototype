@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Learner and admin share them; admin uses denser spacing.
+ * Product previews inside activities use the light "pv-" tokens so they read as real apps.
+ */
+@theme {
+  --font-sans: "Inter", "Segoe UI", ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --color-canvas: #0c0e12;
+  --color-surface: #13161c;
+  --color-raised: #191d25;
+  --color-overlay: #1f2430;
+  --color-line: #252b36;
+  --color-line-strong: #343c4b;
+  --color-fg: #e9ecf1;
+  --color-muted: #a3acba;
+  --color-subtle: #7d8796;
+  --color-accent: #8fb3ff;
+  --color-accent-strong: #b5ccff;
+  --color-accent-ink: #0b1630;
+  --color-ok: #6fcf9b;
+  --color-ok-bg: #12291f;
+  --color-warn: #e8bd6a;
+  --color-warn-bg: #2d2412;
+  --color-bad: #f08a8a;
+  --color-bad-bg: #321717;
+  --color-ai: #c3a6ff;
+  --color-ai-bg: #231c38;
+
+  --color-pv-bg: #f6f7f9;
+  --color-pv-surface: #ffffff;
+  --color-pv-line: #e1e4ea;
+  --color-pv-fg: #1b2230;
+  --color-pv-muted: #5d6676;
+  --color-pv-accent: #2f5bd3;
+  --color-pv-ai: #6b46c1;
+  --color-pv-ai-bg: #f1ebff;
+  --color-pv-warn: #8a5a00;
+  --color-pv-warn-bg: #fff4dc;
+  --color-pv-danger: #b42318;
+  --color-pv-danger-bg: #fdecea;
+  --color-pv-ok: #1e7a4c;
+  --color-pv-ok-bg: #e5f6ed;
+  --color-pv-info-bg: #e8f0ff;
+
+  --radius-card: 14px;
+  --animate-rise: rise 180ms ease-out;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+html { color-scheme: dark; }
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection { background: #2e4a86; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Learner preference: reduce motion even without the OS setting. */
+[data-reduced-motion="true"] *, [data-reduced-motion="true"] *::before, [data-reduced-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
+
+.prose-body p + p { margin-top: 0.75rem; }
+
+mark.src-hl {
+  background: #ffe9a8;
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
