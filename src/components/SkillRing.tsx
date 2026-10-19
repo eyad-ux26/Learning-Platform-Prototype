@@ -1,6 +1,6 @@
-import { BadgeCheck, Eye, PenLine, Search, ShieldCheck, type LucideIcon } from "lucide-react";
 "use client";
 
+import { BadgeCheck, Eye, PenLine, Search, ShieldCheck, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/i18n";
 import type { SkillProgress } from "@/domain/mastery";
 import { cn } from "./ui";

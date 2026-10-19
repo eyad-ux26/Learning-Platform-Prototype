@@ -221,7 +221,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
         </ul>
       </details>
       <div>
-        <p className="font-mono text-xs font-semibold text-accent">{t.practice.targetSkills}</p>
+        <p className="font-mono text-xs font-semibold text-accent">{tr(t.practice.targetSkills)}</p>
         <ul className="mt-2 space-y-2">
           {skillIds.map((id) => {
             const idx = Math.max(0, view.bundle.skills.findIndex((s) => s.id === id));

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { History, Info, MessageSquareText, RotateCcw, Settings, Sparkles, Undo2, X, FileText, CheckCircle2, Clock } from "lucide-react";
 import type { Behaviour, DesignBenchActivity, DesignDimension } from "@/domain/types";
 import { cn } from "@/components/ui";
+import { useI18n } from "@/i18n";
 
 export interface PreviewState {
   status: "proposed" | "applied" | "reverted";
@@ -57,9 +58,11 @@ export function initialPreviewState(activity: DesignBenchActivity, b: Record<Des
 const fmt = (iso?: string) =>
   iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "";
 
-function displayValue(activity: DesignBenchActivity, s: PreviewState) {
+const DATE_RE = /(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d{1,2}) ([A-Za-z]{3}) (\d{4})/g;
+
+function displayValue(activity: DesignBenchActivity, s: PreviewState, fmtFn: (iso?: string) => string = fmt) {
   const p = activity.preview.proposal;
-  if (p.kind === "field") return fmt(s.valueIso) || p.value;
+  if (p.kind === "field") return fmtFn(s.valueIso) || p.value;
   return s.text ?? p.value;
 }
 
@@ -88,6 +91,7 @@ export function ProposalPreview({
   onChange: (s: PreviewState) => void;
   readOnly?: boolean;
 }) {
+  const { tr, L, locale, date } = useI18n();
   const b = behavioursFor(activity, selections);
   const p = activity.preview.proposal;
   const cfg = activity.preview;
@@ -115,7 +119,18 @@ export function ProposalPreview({
     return () => window.clearInterval(id);
   }, [state.toast]);
 
-  const value = displayValue(activity, state);
+  const fmtL = (iso?: string) =>
+    iso ? (locale === "en" ? fmt(iso) : date(`${iso}T00:00:00Z`, { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })) : "";
+  // Stored log/history lines are English; localise at display time (dates first, then the phrase templates).
+  const locStored = (line: string) => {
+    if (locale === "en") return line;
+    const withDates = line.replace(DATE_RE, (m, d: string, mon: string, y: string) => {
+      const t = new Date(`${d} ${mon} ${y} 00:00:00 UTC`);
+      return Number.isNaN(t.getTime()) ? m : date(t.toISOString(), { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+    });
+    return L(withDates);
+  };
+  const value = displayValue(activity, state, fmtL);
   const applied = state.status === "applied";
   const reverted = state.status === "reverted";
 
@@ -136,6 +151,8 @@ export function ProposalPreview({
       history: state.history.length ? [...state.history, `${p.label}: reverted`] : state.history,
     });
 
+  const typePrompt = tr("Type {phrase} to confirm", { phrase: "\u0000" }).split("\u0000");
+  if (typePrompt.length < 2) typePrompt.push("");
   const secondsLeft = state.toast ? Math.max(0, Math.ceil((state.toast.until - now) / 1000)) : 0;
 
   // ----- uncertainty -----
@@ -156,27 +173,27 @@ export function ProposalPreview({
     b.evidence === "tooltip" ? (
       <span className="relative inline-flex">
         <button type="button" disabled={readOnly} onClick={() => set({ tooltipOpen: !state.tooltipOpen })} aria-expanded={!!state.tooltipOpen} className="inline-flex items-center gap-1 text-xs text-pv-muted underline decoration-dotted underline-offset-2">
-          <Info size={12} aria-hidden /> About this suggestion
+          <Info size={12} aria-hidden /> {tr("About this suggestion")}
         </button>
         {state.tooltipOpen && <span role="tooltip" className="absolute start-0 top-6 z-10 w-56 rounded-md bg-pv-fg px-2.5 py-1.5 text-xs text-white shadow-lg">{p.tooltipText}</span>}
       </span>
     ) : b.evidence === "quote" && p.quote ? (
-      <p className="text-xs italic text-pv-muted">From the source: {p.quote}</p>
+      <p className="text-xs italic text-pv-muted">{tr("From the source:")} {p.quote}</p>
     ) : b.evidence === "source" ? (
       <button type="button" disabled={readOnly} onClick={() => set({ sourceOpen: !state.sourceOpen })} aria-expanded={!!state.sourceOpen} className="inline-flex items-center gap-1 text-xs font-medium text-pv-accent underline underline-offset-2">
-        <MessageSquareText size={12} aria-hidden /> {state.sourceOpen ? "Hide source" : "View source"}
+        <MessageSquareText size={12} aria-hidden /> {state.sourceOpen ? tr("Hide source") : tr("View source")}
       </button>
     ) : null;
 
   const explanation =
     b.explanation === "generic" ? (
-      <p className="text-xs text-pv-muted">{p.kind === "change" ? "Found a better time." : "Our AI identifies the most important points."}</p>
+      <p className="text-xs text-pv-muted">{p.kind === "change" ? tr("Found a better time.") : tr("Our AI identifies the most important points.")}</p>
     ) : b.explanation === "reason" && p.reasonText ? (
-      <p className="rounded-md bg-pv-bg px-2.5 py-2 text-xs text-pv-fg"><span className="font-semibold">Why: </span>{p.reasonText}</p>
+      <p className="rounded-md bg-pv-bg px-2.5 py-2 text-xs text-pv-fg"><span className="font-semibold">{tr("Why:")} </span>{p.reasonText}</p>
     ) : b.explanation === "trace" ? (
       <div>
         <button type="button" disabled={readOnly} onClick={() => set({ traceOpen: !state.traceOpen })} aria-expanded={!!state.traceOpen} className="text-xs font-medium text-pv-accent underline underline-offset-2">
-          {state.traceOpen ? "Hide" : "Show"} full assistant reasoning (2,140 words)
+          {state.traceOpen ? tr("Hide full assistant reasoning (2,140 words)") : tr("Show full assistant reasoning (2,140 words)")}
         </button>
         {state.traceOpen && (
           <pre className="mt-1 max-h-28 overflow-y-auto whitespace-pre-wrap rounded-md bg-pv-fg p-2 font-mono text-[10px] leading-snug text-[#cfd6e4]">
@@ -201,18 +218,18 @@ export function ProposalPreview({
           }}
           className="inline-flex items-center gap-1 text-xs font-medium text-pv-accent"
         >
-          <RotateCcw size={12} aria-hidden /> Try again
+          <RotateCcw size={12} aria-hidden /> {tr("Try again")}
         </button>
       );
     if (b.correction === "settings")
       return (
         <button type="button" onClick={() => set({ settingsNotice: true })} className="inline-flex items-center gap-1 text-xs font-medium text-pv-accent">
-          <Settings size={12} aria-hidden /> Edit in task settings
+          <Settings size={12} aria-hidden /> {tr("Edit in task settings")}
         </button>
       );
     if (b.correction === "alternatives" && alternatives.length)
       return (
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Choose a value">
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={tr("Choose a value")}>
           {alternatives.map((alt, i) => {
             const active = p.kind === "field" ? state.valueIso === alt.iso : (state.altIndex ?? 0) === i;
             return (
@@ -232,7 +249,7 @@ export function ProposalPreview({
           })}
           {p.kind === "field" && (
             <button type="button" onClick={() => set({ editing: true })} className="text-xs font-medium text-pv-accent underline underline-offset-2">
-              Other date
+              {tr("Other date")}
             </button>
           )}
         </div>
@@ -245,7 +262,7 @@ export function ProposalPreview({
   // ----- commit controls -----
   const commitControls = (() => {
     if (readOnly || applied || b.commitment === "auto" || b.commitment === "on-save") return null;
-    const label = b.commitment === "review" ? (p.kind === "change" ? "Review and send" : "Review changes") : p.kind === "bulk" ? "Apply" : p.kind === "text" && b.presentation === "chip" ? "Insert" : "Accept";
+    const label = b.commitment === "review" ? (p.kind === "change" ? tr("Review and send") : tr("Review changes")) : p.kind === "bulk" ? tr("Apply") : p.kind === "text" && b.presentation === "chip" ? tr("Insert") : tr("Accept");
     return (
       <button type="button" onClick={requestCommit} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-pv-accent px-3 text-sm font-medium text-white">
         <CheckCircle2 size={14} aria-hidden /> {label}
@@ -258,7 +275,7 @@ export function ProposalPreview({
     state.editing && canEditInline && p.kind === "field" ? (
       <input
         type="date"
-        aria-label={`${p.label}, edit`}
+        aria-label={tr("{label}, edit", { label: p.label })}
         value={state.valueIso ?? ""}
         onChange={(e) => set({ valueIso: e.target.value, log: [...state.log, `User set the date to ${fmt(e.target.value)}.`] })}
         onBlur={() => set({ editing: false })}
@@ -270,7 +287,7 @@ export function ProposalPreview({
         type="button"
         disabled={!canEditInline}
         onClick={() => set({ editing: true })}
-        aria-label={canEditInline ? `${p.label}: ${filledValue}. Select to edit` : undefined}
+        aria-label={canEditInline ? tr("{label}: {value}. Select to edit", { label: p.label, value: filledValue }) : undefined}
         className={cn(
           "inline-flex min-h-9 items-center gap-1.5 rounded-md border px-2.5 text-sm text-pv-fg disabled:cursor-default",
           provisional && !applied ? "border-dashed border-[#b8a3f0] bg-pv-ai-bg" : "border-pv-line bg-pv-surface",
@@ -279,7 +296,7 @@ export function ProposalPreview({
       >
         {provisional && !applied && <Sparkles size={13} className="text-pv-ai" aria-hidden />}
         {filledValue}
-        {provisional && !applied && <span className="rounded bg-[#e4d9ff] px-1 text-[10px] font-semibold uppercase tracking-wide text-pv-ai">Suggested</span>}
+        {provisional && !applied && <span className="rounded bg-[#e4d9ff] px-1 text-[10px] font-semibold uppercase tracking-wide text-pv-ai">{tr("Suggested")}</span>}
       </button>
     );
 
@@ -290,14 +307,14 @@ export function ProposalPreview({
         <div className="space-y-2">
           <div className="text-xs font-medium text-pv-muted">{p.label}</div>
           <div className="flex flex-wrap items-center gap-2">
-            {showInField ? fieldBox(reverted ? "No due date" : value, b.presentation === "provisional") : <span className="inline-flex h-9 items-center rounded-md border border-pv-line bg-pv-surface px-2.5 text-sm text-pv-muted">No due date</span>}
+            {showInField ? fieldBox(reverted ? tr("No due date") : value, b.presentation === "provisional") : <span className="inline-flex h-9 items-center rounded-md border border-pv-line bg-pv-surface px-2.5 text-sm text-pv-muted">{tr("No due date")}</span>}
             {b.presentation === "chip" && !applied && !reverted && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d9ccff] bg-pv-ai-bg px-2.5 py-1 text-xs font-medium text-pv-ai">
-                <Sparkles size={12} aria-hidden /> Suggested: {state.editing && canEditInline ? fieldBox(value, false) : <button type="button" disabled={!canEditInline} onClick={() => set({ editing: true })} className="underline-offset-2 enabled:underline">{value}</button>}
+                <Sparkles size={12} aria-hidden /> {tr("Suggested:")} {state.editing && canEditInline ? fieldBox(value, false) : <button type="button" disabled={!canEditInline} onClick={() => set({ editing: true })} className="underline-offset-2 enabled:underline">{value}</button>}
               </span>
             )}
-            {b.presentation === "as-fact" && !applied && !reverted && <span className="sr-only">Proposed value, shown as if confirmed</span>}
-            {applied && <span className="inline-flex items-center gap-1 text-xs text-pv-ok"><CheckCircle2 size={13} aria-hidden /> Set</span>}
+            {b.presentation === "as-fact" && !applied && !reverted && <span className="sr-only">{tr("Proposed value, shown as if confirmed")}</span>}
+            {applied && <span className="inline-flex items-center gap-1 text-xs text-pv-ok"><CheckCircle2 size={13} aria-hidden /> {tr("Set")}</span>}
           </div>
           {!reverted && uncertainty}
           {!reverted && (evidence || correction) && <div className="flex flex-wrap items-center gap-3">{evidence}{correction}</div>}
@@ -307,7 +324,7 @@ export function ProposalPreview({
     if (p.kind === "text") {
       const editable = !readOnly && !applied && b.correction === "inline-edit";
       const textNode = editable ? (
-        <textarea aria-label="Summary text, editable" value={state.text} onChange={(e) => set({ text: e.target.value })} rows={4} className="w-full rounded-md border border-pv-accent bg-pv-surface p-2 text-sm leading-relaxed text-pv-fg" />
+        <textarea aria-label={tr("Summary text, editable")} value={state.text} onChange={(e) => set({ text: e.target.value })} rows={4} className="w-full rounded-md border border-pv-accent bg-pv-surface p-2 text-sm leading-relaxed text-pv-fg" />
       ) : (
         <p className="text-sm leading-relaxed text-pv-fg">
           {(state.text ?? p.value).split(". ").map((sentence, i, arr) => (
@@ -334,7 +351,7 @@ export function ProposalPreview({
       if (b.presentation === "as-fact" || applied)
         return (
           <div className="space-y-2">
-            <div className="text-xs font-semibold uppercase tracking-wide text-pv-muted">Summary</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-pv-muted">{tr("Summary")}</div>
             {textNode}
             {!applied && meta}
           </div>
@@ -342,7 +359,7 @@ export function ProposalPreview({
       return (
         <div className={cn("space-y-2 rounded-lg border p-3", b.presentation === "chip" ? "border-pv-line bg-pv-surface" : "border-dashed border-[#b8a3f0] bg-pv-ai-bg")}>
           <div className="flex items-center gap-1.5 text-xs font-semibold text-pv-ai">
-            <Sparkles size={13} aria-hidden /> {b.presentation === "chip" ? "Assistant draft · side panel" : "Assistant draft · not reviewed"}
+            <Sparkles size={13} aria-hidden /> {b.presentation === "chip" ? tr("Assistant draft · side panel") : tr("Assistant draft · not reviewed")}
           </div>
           {textNode}
           {meta}
@@ -353,9 +370,9 @@ export function ProposalPreview({
       return (
         <div className={cn("space-y-2 rounded-lg border p-3", applied ? "border-pv-line bg-pv-surface" : "border-dashed border-[#b8a3f0] bg-pv-ai-bg")}>
           <div className="flex items-center gap-1.5 text-xs font-semibold text-pv-ai">
-            <Sparkles size={13} aria-hidden /> {applied ? "Change applied" : reverted ? "Change reverted" : p.label}
+            <Sparkles size={13} aria-hidden /> {applied ? tr("Change applied") : reverted ? tr("Change reverted") : p.label}
           </div>
-          <p className="text-sm font-medium text-pv-fg">{reverted ? "Back at Thu 12 Mar, 14:00–14:45" : value}</p>
+          <p className="text-sm font-medium text-pv-fg">{reverted ? tr("Back at Thu 12 Mar, 14:00–14:45") : value}</p>
           {!reverted && explanation}
           <p className="text-xs text-pv-muted">{p.impactText}</p>
         </div>
@@ -367,10 +384,10 @@ export function ProposalPreview({
     return (
       <div className="space-y-2 rounded-lg border border-dashed border-[#b8a3f0] bg-pv-ai-bg p-3">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-pv-ai">
-          <Sparkles size={13} aria-hidden /> {applied ? "Update applied" : reverted ? "Batch reverted" : p.label}
+          <Sparkles size={13} aria-hidden /> {applied ? tr("Update applied") : reverted ? tr("Batch reverted") : p.label}
         </div>
         <p className="text-sm font-medium text-pv-fg">{p.value}</p>
-        {b.scope === "count" && <p className="text-xs text-pv-muted">{state.excludeExceptions ? "1,090 products will change price" : p.scopeCount}</p>}
+        {b.scope === "count" && <p className="text-xs text-pv-muted">{state.excludeExceptions ? tr("1,090 products will change price") : p.scopeCount}</p>}
         {(b.scope === "sample" || b.scope === "diff") && (
           <div className="overflow-x-auto rounded-md border border-pv-line bg-pv-surface">
             <table className="w-full text-xs">
@@ -385,7 +402,7 @@ export function ProposalPreview({
                 ))}
               </tbody>
             </table>
-            <p className="border-t border-pv-line px-2 py-1.5 text-[11px] text-pv-muted">{b.scope === "sample" ? "Showing 3 example products" : `Showing 5 of ${state.excludeExceptions ? "1,090" : "1,240"} · filter, sort and search available`}</p>
+            <p className="border-t border-pv-line px-2 py-1.5 text-[11px] text-pv-muted">{b.scope === "sample" ? tr("Showing 3 example products") : tr("Showing 5 of {n} · filter, sort and search available", { n: state.excludeExceptions ? "1,090" : "1,240" })}</p>
           </div>
         )}
         {b.scope === "diff" && !applied && !readOnly && (
@@ -406,31 +423,31 @@ export function ProposalPreview({
       items.push(
         <div key="toast" role="status" className="flex items-center gap-3 rounded-lg bg-pv-fg px-3 py-2 text-sm text-white shadow-lg">
           <span className="flex-1">
-            {state.toast.kind === "send" ? `Message to client sends in ${secondsLeft}s` : `${state.toast.text} · ${secondsLeft}s`}
-            <span className="ms-1 text-[11px] text-[#aab4c6]">{state.toast.kind === "send" ? "(60 s in the product; shortened here)" : ""}</span>
+            {state.toast.kind === "send" ? tr("Message to client sends in {n}s", { n: secondsLeft }) : tr("{text} · {n}s", { text: L(state.toast.text), n: secondsLeft })}
+            <span className="ms-1 text-[11px] text-[#aab4c6]">{state.toast.kind === "send" ? tr("(60 s in the product; shortened here)") : ""}</span>
           </span>
           <button type="button" onClick={() => undo(state.toast!.kind === "send" ? "User cancelled the send. The client was never contacted." : "User selected Undo. The previous value was restored.")} className="inline-flex items-center gap-1 font-semibold text-[#9db7ff]">
-            <Undo2 size={13} aria-hidden /> {state.toast.kind === "send" ? "Cancel send" : "Undo"}
+            <Undo2 size={13} aria-hidden /> {state.toast.kind === "send" ? tr("Cancel send") : tr("Undo")}
           </button>
         </div>,
       );
     if (applied && b.recovery === "rollback")
       items.push(
         <button key="rb" type="button" onClick={() => undo(p.kind === "change" ? "Reverted. The slot was restored and the client was sent a correction." : "Batch reverted. Previous prices restored.")} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-pv-line bg-pv-surface px-3 text-sm text-pv-fg">
-          <Undo2 size={13} aria-hidden /> {p.kind === "change" ? "Revert and notify client" : "Revert this batch"}
+          <Undo2 size={13} aria-hidden /> {p.kind === "change" ? tr("Revert and notify client") : tr("Revert this batch")}
         </button>,
       );
-    if (applied && b.recovery === "undo" && !state.toast && p.kind === "change") items.push(<p key="u" className="text-xs text-pv-muted">Undo restored only the calendar. The client still has the message.</p>);
+    if (applied && b.recovery === "undo" && !state.toast && p.kind === "change") items.push(<p key="u" className="text-xs text-pv-muted">{tr("Undo restored only the calendar. The client still has the message.")}</p>);
     if (state.history.length)
       items.push(
         <div key="h" className="rounded-md border border-pv-line bg-pv-surface p-2.5">
-          <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-pv-muted"><History size={12} aria-hidden /> History</div>
+          <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-pv-muted"><History size={12} aria-hidden /> {tr("History")}</div>
           <ul className="space-y-1 text-xs text-pv-fg">
             {state.history.map((h, i) => (
               <li key={i} className="flex items-center justify-between gap-2">
-                <span>{h}</span>
+                <span>{locStored(h)}</span>
                 {applied && i === state.history.length - 1 && (
-                  <button type="button" onClick={() => undo("Reverted from history.")} className="font-medium text-pv-accent">Revert</button>
+                  <button type="button" onClick={() => undo("Reverted from history.")} className="font-medium text-pv-accent">{tr("Revert")}</button>
                 )}
               </li>
             ))}
@@ -441,7 +458,7 @@ export function ProposalPreview({
   })();
 
   return (
-    <div className="rounded-xl border border-line-strong bg-pv-bg p-1.5" role="group" aria-label={`${cfg.app} interface preview`}>
+    <div className="rounded-xl border border-line-strong bg-pv-bg p-1.5" role="group" aria-label={tr("{app} interface preview", { app: cfg.app })}>
       <div className="flex items-center justify-between gap-2 px-2 pb-1.5 pt-0.5">
         <div className="flex items-center gap-1.5" aria-hidden>
           <span className="h-2.5 w-2.5 rounded-full bg-[#d4d8e0]" />
@@ -476,8 +493,8 @@ export function ProposalPreview({
           {state.settingsNotice && (
             <div className="flex items-start gap-2 rounded-md bg-pv-warn-bg p-2.5 text-xs text-pv-warn">
               <Settings size={13} className="mt-px" aria-hidden />
-              <span>This would leave the panel and open Task settings → Dates, where the user finds the field again. (Simulated.)</span>
-              <button type="button" onClick={() => set({ settingsNotice: false })} aria-label="Dismiss" className="ms-auto"><X size={13} /></button>
+              <span>{tr("This would leave the panel and open Task settings → Dates, where the user finds the field again. (Simulated.)")}</span>
+              <button type="button" onClick={() => set({ settingsNotice: false })} aria-label={tr("Dismiss")} className="ms-auto"><X size={13} /></button>
             </div>
           )}
 
@@ -485,7 +502,7 @@ export function ProposalPreview({
             <div className="rounded-md border border-pv-line bg-pv-bg p-3">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-semibold text-pv-fg">{p.source.title}</div>
-                <button type="button" onClick={() => set({ sourceOpen: false })} aria-label="Close source" className="text-pv-muted"><X size={13} /></button>
+                <button type="button" onClick={() => set({ sourceOpen: false })} aria-label={tr("Close source")} className="text-pv-muted"><X size={13} /></button>
               </div>
               <div className="text-[11px] text-pv-muted">{p.source.meta}</div>
               <p className="mt-2 text-sm leading-relaxed text-pv-fg">{highlight(p.source.body, p.source.highlight)}</p>
@@ -494,46 +511,46 @@ export function ProposalPreview({
 
           {state.reviewOpen && !applied && (
             <div className="space-y-3 rounded-lg border border-pv-line bg-pv-bg p-3">
-              <div className="text-sm font-semibold text-pv-fg">{b.commitment === "typed" ? "Confirm update" : "Review before committing"}</div>
+              <div className="text-sm font-semibold text-pv-fg">{b.commitment === "typed" ? tr("Confirm update") : tr("Review before committing")}</div>
               {p.kind === "change" && p.reviewMessage && b.commitment === "review" && (
                 <>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-                    <dt className="text-pv-muted">Before</dt><dd className="text-pv-fg">Thu 12 Mar, 14:00–14:45</dd>
-                    <dt className="text-pv-muted">After</dt><dd className="font-medium text-pv-fg">Fri 13 Mar, 10:00–10:45</dd>
-                    <dt className="text-pv-muted">Sends to</dt><dd className="text-pv-fg">Elena Novak · SMS and email</dd>
+                    <dt className="text-pv-muted">{tr("Before")}</dt><dd className="text-pv-fg">{tr("Thu 12 Mar, 14:00–14:45")}</dd>
+                    <dt className="text-pv-muted">{tr("After")}</dt><dd className="font-medium text-pv-fg">{tr("Fri 13 Mar, 10:00–10:45")}</dd>
+                    <dt className="text-pv-muted">{tr("Sends to")}</dt><dd className="text-pv-fg">{tr("Elena Novak · SMS and email")}</dd>
                   </dl>
-                  <div className="rounded-md bg-pv-surface p-2.5 text-xs text-pv-fg"><span className="font-semibold">Message: </span>{p.reviewMessage}</div>
-                  <p className="text-[11px] text-pv-warn">Messages cannot be recalled once sent.</p>
+                  <div className="rounded-md bg-pv-surface p-2.5 text-xs text-pv-fg"><span className="font-semibold">{tr("Message:")} </span>{p.reviewMessage}</div>
+                  <p className="text-[11px] text-pv-warn">{tr("Messages cannot be recalled once sent.")}</p>
                 </>
               )}
-              {p.kind === "bulk" && b.commitment === "review" && <p className="text-xs text-pv-fg">Check the list above, exclude anything that should not change, then apply.</p>}
+              {p.kind === "bulk" && b.commitment === "review" && <p className="text-xs text-pv-fg">{tr("Check the list above, exclude anything that should not change, then apply.")}</p>}
               {b.commitment === "typed" && (
                 <label className="block text-xs text-pv-fg">
-                  Type <span className="font-mono font-semibold">{p.typedPhrase}</span> to confirm
+                  {typePrompt[0]}<span className="font-mono font-semibold">{p.typedPhrase}</span>{typePrompt[1]}
                   <input value={state.typed ?? ""} onChange={(e) => set({ typed: e.target.value })} className="mt-1 block h-8 w-32 rounded-md border border-pv-line bg-pv-surface px-2 font-mono text-sm" />
                 </label>
               )}
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => set({ reviewOpen: false })} className="h-8 rounded-md px-3 text-sm text-pv-muted">Back</button>
+                <button type="button" onClick={() => set({ reviewOpen: false })} className="h-8 rounded-md px-3 text-sm text-pv-muted">{tr("Back")}</button>
                 <button
                   type="button"
                   disabled={b.commitment === "typed" && state.typed !== p.typedPhrase}
                   onClick={() => commit(b.commitment === "typed" ? "Applied after the user typed the confirmation." : "Applied after the user reviewed the change.")}
                   className="h-8 rounded-md bg-pv-accent px-3 text-sm font-medium text-white disabled:opacity-40"
                 >
-                  {p.kind === "change" ? "Send to Elena" : p.kind === "bulk" ? `Apply to ${state.excludeExceptions ? "1,090" : "1,240"} products` : "Apply"}
+                  {p.kind === "change" ? tr("Send to Elena") : p.kind === "bulk" ? tr("Apply to {n} products", { n: state.excludeExceptions ? "1,090" : "1,240" }) : tr("Apply")}
                 </button>
               </div>
             </div>
           )}
 
           {state.dialogOpen && !applied && (
-            <div className="rounded-xl border border-pv-line bg-pv-surface p-4 shadow-[0_8px_30px_rgba(15,23,42,0.18)]" role="alertdialog" aria-label="Confirmation dialog in the product">
-              <div className="text-sm font-semibold text-pv-fg">Are you sure?</div>
-              <p className="mt-1 text-xs text-pv-muted">This will apply the suggested change.</p>
+            <div className="rounded-xl border border-pv-line bg-pv-surface p-4 shadow-[0_8px_30px_rgba(15,23,42,0.18)]" role="alertdialog" aria-label={tr("Confirmation dialog in the product")}>
+              <div className="text-sm font-semibold text-pv-fg">{tr("Are you sure?")}</div>
+              <p className="mt-1 text-xs text-pv-muted">{tr("This will apply the suggested change.")}</p>
               <div className="mt-3 flex justify-end gap-2">
-                <button type="button" onClick={() => set({ dialogOpen: false })} className="h-8 rounded-md px-3 text-sm text-pv-muted">Cancel</button>
-                <button type="button" onClick={() => commit("Applied after an “Are you sure?” dialog.")} className="h-8 rounded-md bg-pv-accent px-3 text-sm font-medium text-white">Yes</button>
+                <button type="button" onClick={() => set({ dialogOpen: false })} className="h-8 rounded-md px-3 text-sm text-pv-muted">{tr("Cancel")}</button>
+                <button type="button" onClick={() => commit("Applied after an “Are you sure?” dialog.")} className="h-8 rounded-md bg-pv-accent px-3 text-sm font-medium text-white">{tr("Yes")}</button>
               </div>
             </div>
           )}
@@ -541,7 +558,7 @@ export function ProposalPreview({
           <div className="flex flex-wrap items-center justify-end gap-2">
             {b.commitment === "on-save" && !applied && !readOnly && (
               <button type="button" onClick={() => commit(b.presentation === "as-fact" ? "Saved with the task. The suggested value was committed along with the other edits." : "Saved with the task, including the suggested value.")} className="inline-flex h-8 items-center rounded-md border border-pv-line bg-pv-surface px-3 text-sm font-medium text-pv-fg">
-                Save task
+                {tr("Save task")}
               </button>
             )}
             {commitControls}
@@ -552,9 +569,9 @@ export function ProposalPreview({
       </div>
       {state.log.length > 0 && (
         <div className="mt-1.5 rounded-lg bg-[#e9ecf2] p-3" aria-live="polite">
-          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-pv-muted"><Clock size={11} aria-hidden /> What happened (simulation)</div>
+          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-pv-muted"><Clock size={11} aria-hidden /> {tr("What happened (simulation)")}</div>
           <ol className="space-y-0.5 text-xs text-pv-fg">
-            {state.log.slice(-5).map((l, i) => <li key={i}>• {l}</li>)}
+            {state.log.slice(-5).map((l, i) => <li key={i}>• {locStored(l)}</li>)}
           </ol>
         </div>
       )}

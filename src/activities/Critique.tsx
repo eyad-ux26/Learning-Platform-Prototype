@@ -3,6 +3,7 @@
 import { Check, X } from "lucide-react";
 import type { CritiqueActivity, Evaluation, Verdict } from "@/domain/types";
 import { cn, inputClass } from "@/components/ui";
+import { useI18n } from "@/i18n";
 import { ScreenRenderer, type HotspotMark } from "./ScreenRenderer";
 
 type Reviews = Record<string, { verdict?: Verdict; reason?: string; note?: string }>;
@@ -18,19 +19,20 @@ export function critiqueMarks(activity: CritiqueActivity, reviews: Reviews, eval
 }
 
 export function CritiqueStage({ activity, reviews, selected, onSelect, evaluation }: { activity: CritiqueActivity; reviews: Reviews; selected?: string; onSelect: (id: string) => void; evaluation?: Evaluation }) {
+  const { tr } = useI18n();
   const numbers = Object.fromEntries(activity.hotspots.map((h, i) => [h.id, i + 1]));
   const labels = Object.fromEntries(activity.hotspots.map((h) => [h.id, h.label]));
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-fg">Interface under review</h3>
-        <p className="text-xs text-subtle">Select a numbered element to review it.</p>
+        <h3 className="text-sm font-semibold text-fg">{tr("Interface under review")}</h3>
+        <p className="text-xs text-subtle">{tr("Select a numbered element to review it.")}</p>
       </div>
       <ScreenRenderer screen={activity.screen} mode={{ selected, onSelect, marks: critiqueMarks(activity, reviews, evaluation), numbers, labels }} />
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-subtle" aria-label="Legend">
-        <li><span className="me-1 inline-block h-2.5 w-2.5 rounded-sm border border-dashed border-[#7c8bf5]" />Not reviewed</li>
-        <li><Check size={11} className="me-1 inline text-ok" />{evaluation ? "Judged correctly" : "Acceptable"}</li>
-        <li><X size={11} className="me-1 inline text-bad" />{evaluation ? "Judged incorrectly" : "Problematic"}</li>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-subtle" aria-label={tr("Legend")}>
+        <li><span className="me-1 inline-block h-2.5 w-2.5 rounded-sm border border-dashed border-[#7c8bf5]" />{tr("Not reviewed")}</li>
+        <li><Check size={11} className="me-1 inline text-ok" />{evaluation ? tr("Judged correctly") : tr("Acceptable")}</li>
+        <li><X size={11} className="me-1 inline text-bad" />{evaluation ? tr("Judged incorrectly") : tr("Problematic")}</li>
       </ul>
     </div>
   );
@@ -53,6 +55,7 @@ export function CritiqueControls({
   readOnly?: boolean;
   evaluation?: Evaluation;
 }) {
+  const { tr } = useI18n();
   const reviewed = activity.hotspots.filter((h) => reviews[h.id]?.verdict && reviews[h.id]?.reason).length;
   const hotspot = activity.hotspots.find((h) => h.id === selected);
   const idx = hotspot ? activity.hotspots.indexOf(hotspot) : -1;
@@ -62,7 +65,7 @@ export function CritiqueControls({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted" aria-live="polite">
-        {reviewed} of {activity.hotspots.length} elements reviewed.
+        {tr("{n} of {m} elements reviewed.", { n: reviewed, m: activity.hotspots.length })}
       </p>
       <ol className="space-y-1.5">
         {activity.hotspots.map((h, i) => {
@@ -80,14 +83,14 @@ export function CritiqueControls({
                 <span className="min-w-0 flex-1 truncate text-fg">{h.label}</span>
                 <span className="shrink-0 text-xs">
                   {evaluation ? (
-                    correct ? <span className="text-ok">✓ Correct</span> : <span className="text-bad">✗ Review</span>
+                    correct ? <span className="text-ok">{tr("✓ Correct")}</span> : <span className="text-bad">{tr("✗ Review")}</span>
                   ) : rv?.verdict ? (
                     <span className={rv.verdict === "acceptable" ? "text-ok" : "text-bad"}>
-                      {rv.verdict === "acceptable" ? "✓ Acceptable" : "✗ Problematic"}
-                      {!rv.reason && <span className="text-warn"> · no reason</span>}
+                      {rv.verdict === "acceptable" ? tr("✓ Acceptable") : tr("✗ Problematic")}
+                      {!rv.reason && <span className="text-warn"> · {tr("no reason")}</span>}
                     </span>
                   ) : (
-                    <span className="text-subtle">Not reviewed</span>
+                    <span className="text-subtle">{tr("Not reviewed")}</span>
                   )}
                 </span>
               </button>
@@ -97,60 +100,60 @@ export function CritiqueControls({
       </ol>
 
       {hotspot && (
-        <div className="space-y-4 rounded-xl border border-line-strong bg-raised p-4 animate-rise" aria-label={`Review element ${idx + 1}`} role="region">
+        <div className="space-y-4 rounded-xl border border-line-strong bg-raised p-4 animate-rise" aria-label={tr("Review element {n}", { n: idx + 1 })} role="region">
           <h3 className="text-sm font-semibold text-fg">
             {idx + 1}. {hotspot.label}
           </h3>
           {evaluation ? (
             <div className="space-y-2 text-sm">
               <p className="text-muted">
-                You judged: <span className="text-fg">{r.verdict ?? "—"}</span>
+                {tr("You judged:")} <span className="text-fg">{r.verdict ? tr(r.verdict === "acceptable" ? "acceptable" : "problematic") : "—"}</span>
                 {r.reason && <> · {activity.reasons.find((x) => x.id === r.reason)?.label}</>}
               </p>
               <p className="text-muted">
-                Expected: <span className="text-fg">{hotspot.verdict}</span> · {activity.reasons.find((x) => x.id === hotspot.correctReasons[0])?.label}
+                {tr("Expected:")} <span className="text-fg">{tr(hotspot.verdict === "acceptable" ? "acceptable" : "problematic")}</span> · {activity.reasons.find((x) => x.id === hotspot.correctReasons[0])?.label}
               </p>
               <p className="text-fg">{hotspot.explanation}</p>
-              <p className="text-muted"><span className="font-medium text-fg">Suggested improvement: </span>{hotspot.improvement}</p>
-              {r.note && <p className="text-xs text-subtle">Your note (stored, not assessed): “{r.note}”</p>}
+              <p className="text-muted"><span className="font-medium text-fg">{tr("Suggested improvement:")} </span>{hotspot.improvement}</p>
+              {r.note && <p className="text-xs text-subtle">{tr("Your note (stored, not assessed): “{note}”", { note: r.note })}</p>}
             </div>
           ) : (
             <>
               <fieldset disabled={readOnly}>
-                <legend className="mb-2 text-sm text-muted">Your judgement</legend>
+                <legend className="mb-2 text-sm text-muted">{tr("Your judgement")}</legend>
                 <div className="grid grid-cols-2 gap-2">
                   {(["acceptable", "problematic"] as const).map((v) => (
                     <label key={v} className={cn("flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border-[1.5px] text-sm font-semibold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent", r.verdict === v ? (v === "acceptable" ? "border-ok/50 bg-ok-bg text-ok" : "border-bad/50 bg-bad-bg text-bad") : "border-line bg-surface text-fg")}>
                       <input type="radio" className="sr-only" name={`verdict-${hotspot.id}`} checked={r.verdict === v} onChange={() => onReview(hotspot.id, { ...r, verdict: v, reason: r.verdict === v ? r.reason : undefined })} />
                       {v === "acceptable" ? <Check size={15} aria-hidden /> : <X size={15} aria-hidden />}
-                      {v === "acceptable" ? "Acceptable" : "Problematic"}
+                      {v === "acceptable" ? tr("Acceptable") : tr("Problematic")}
                     </label>
                   ))}
                 </div>
               </fieldset>
               {r.verdict && (
                 <div className="space-y-1.5">
-                  <label htmlFor={`reason-${hotspot.id}`} className="block text-sm text-muted">Main reason</label>
+                  <label htmlFor={`reason-${hotspot.id}`} className="block text-sm text-muted">{tr("Main reason")}</label>
                   <select id={`reason-${hotspot.id}`} disabled={readOnly} value={r.reason ?? ""} onChange={(e) => onReview(hotspot.id, { ...r, reason: e.target.value || undefined })} className={inputClass}>
-                    <option value="">Choose a reason…</option>
+                    <option value="">{tr("Choose a reason…")}</option>
                     {reasons.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
                   </select>
                 </div>
               )}
               <div className="space-y-1.5">
-                <label htmlFor={`note-${hotspot.id}`} className="block text-sm text-muted">Note <span className="text-subtle">(optional · saved, not assessed)</span></label>
+                <label htmlFor={`note-${hotspot.id}`} className="block text-sm text-muted">{tr("Note")} <span className="text-subtle">{tr("(optional · saved, not assessed)")}</span></label>
                 <textarea id={`note-${hotspot.id}`} disabled={readOnly} rows={2} value={r.note ?? ""} onChange={(e) => onReview(hotspot.id, { ...r, note: e.target.value })} className={inputClass} />
               </div>
               {idx < activity.hotspots.length - 1 && (
                 <button type="button" onClick={() => onSelect(activity.hotspots[idx + 1].id)} className="text-sm font-medium text-accent hover:underline">
-                  Next element →
+                  {tr("Next element →")}
                 </button>
               )}
             </>
           )}
         </div>
       )}
-      {!hotspot && <p className="rounded-lg border border-dashed border-line-strong p-4 text-sm text-muted">Select an element in the list or on the interface to review it.</p>}
+      {!hotspot && <p className="rounded-lg border border-dashed border-line-strong p-4 text-sm text-muted">{tr("Select an element in the list or on the interface to review it.")}</p>}
     </div>
   );
 }

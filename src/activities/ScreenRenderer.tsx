@@ -3,6 +3,7 @@
 import { Check, Info, AlertTriangle, Sparkles, X } from "lucide-react";
 import type { Block, BlockTone, Screen } from "@/domain/types";
 import { cn } from "@/components/ui";
+import { useI18n } from "@/i18n";
 
 export type HotspotMark = "unreviewed" | "acceptable" | "problematic" | "correct" | "incorrect";
 
@@ -41,16 +42,17 @@ function MarkIcon({ mark }: { mark: HotspotMark }) {
 }
 
 function Hotspot({ id, mode, children, inset }: { id?: string; mode?: HotspotMode; children: React.ReactNode; inset?: boolean }) {
+  const { tr } = useI18n();
   if (!id || !mode) return <>{children}</>;
   const mark = mode.marks[id] ?? "unreviewed";
   const selected = mode.selected === id;
-  const markText = { unreviewed: "not reviewed", acceptable: "marked acceptable", problematic: "marked problematic", correct: "judged correctly", incorrect: "judged incorrectly" }[mark];
+  const markText = { unreviewed: tr("not reviewed"), acceptable: tr("marked acceptable"), problematic: tr("marked problematic"), correct: tr("judged correctly"), incorrect: tr("judged incorrectly") }[mark];
   return (
     <button
       type="button"
       onClick={() => mode.onSelect(id)}
       aria-pressed={selected}
-      aria-label={`Element ${mode.numbers[id]}: ${mode.labels[id]}, ${markText}`}
+      aria-label={tr("Element {n}: {label}, {mark}", { n: mode.numbers[id], label: mode.labels[id], mark: markText })}
       className={cn(
         "relative block w-full rounded-md text-start outline-2 transition-[outline-color,box-shadow]",
         inset ? "outline-offset-[-3px]" : "-m-1.5 w-[calc(100%+0.75rem)] p-1.5 outline-offset-0",
@@ -75,6 +77,7 @@ function Hotspot({ id, mode, children, inset }: { id?: string; mode?: HotspotMod
 }
 
 function BlockView({ block, mode }: { block: Block; mode?: HotspotMode }) {
+  const { tr } = useI18n();
   const wrap = (node: React.ReactNode) => (
     <Hotspot id={block.hotspot} mode={mode}>
       {node}
@@ -104,8 +107,8 @@ function BlockView({ block, mode }: { block: Block; mode?: HotspotMode }) {
         <div className="space-y-1">
           <div className="text-xs font-medium text-pv-muted">{block.label}</div>
           <div className={cn("rounded-md border px-3 py-2 text-sm", block.ai ? "border-dashed border-[#b8a3f0] bg-pv-ai-bg text-pv-fg" : "border-pv-line bg-pv-surface text-pv-fg")}>
-            {block.ai && <Sparkles size={13} className="me-1.5 inline text-pv-ai" aria-label="Suggested" />}
-            {block.value || <span className="text-pv-muted">Empty</span>}
+            {block.ai && <Sparkles size={13} className="me-1.5 inline text-pv-ai" aria-label={tr("Suggested")} />}
+            {block.value || <span className="text-pv-muted">{tr("Empty")}</span>}
           </div>
           {block.note && <div className={cn("text-xs", block.ai ? "text-pv-ai" : "text-pv-muted")}>{block.note}</div>}
         </div>,
@@ -228,8 +231,9 @@ function BlockView({ block, mode }: { block: Block; mode?: HotspotMode }) {
 
 /** Renders a realistic, light-themed product screen from structured blocks. */
 export function ScreenRenderer({ screen, mode, className, label }: { screen: Screen; mode?: HotspotMode; className?: string; label?: string }) {
+  const { tr } = useI18n();
   return (
-    <div className={cn("rounded-xl border border-line-strong bg-pv-bg p-1.5 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]", className)} role="group" aria-label={label ?? `${screen.app}: ${screen.title} (interface preview)`}>
+    <div className={cn("rounded-xl border border-line-strong bg-pv-bg p-1.5 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]", className)} role="group" aria-label={label ?? tr("{app}: {title} (interface preview)", { app: screen.app, title: screen.title })}>
       <div className="flex items-center gap-1.5 px-2 pb-1.5 pt-0.5" aria-hidden>
         <span className="h-2.5 w-2.5 rounded-full bg-[#d4d8e0]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#d4d8e0]" />

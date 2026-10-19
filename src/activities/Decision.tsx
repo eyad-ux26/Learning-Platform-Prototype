@@ -5,11 +5,13 @@ import { useState } from "react";
 import { walkDecision } from "@/domain/assessment";
 import type { DecisionActivity } from "@/domain/types";
 import { Button, cn } from "@/components/ui";
+import { useI18n } from "@/i18n";
 import { ScreenRenderer } from "./ScreenRenderer";
 
 type Choices = { nodeId: string; choiceId: string }[];
 
 export function DecisionControls({ activity, choices, onChoices, readOnly }: { activity: DecisionActivity; choices: Choices; onChoices: (c: Choices) => void; readOnly?: boolean }) {
+  const { tr } = useI18n();
   const walk = walkDecision(activity, { choices });
   const node = activity.nodes.find((n) => n.id === walk.currentNodeId);
   const [pending, setPending] = useState<string | undefined>();
@@ -18,17 +20,17 @@ export function DecisionControls({ activity, choices, onChoices, readOnly }: { a
   return (
     <div className="space-y-5">
       {walk.steps.length > 0 && (
-        <ol className="space-y-3" aria-label="Decisions so far">
+        <ol className="space-y-3" aria-label={tr("Decisions so far")}>
           {walk.steps.map((s, i) => {
             const n = activity.nodes.find((x) => x.id === s.nodeId)!;
             const c = n.choices.find((x) => x.id === s.choiceId)!;
             return (
               <li key={i} className="rounded-lg border border-line bg-surface p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Decision {i + 1} · {n.title}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{tr("Decision {n} · {title}", { n: i + 1, title: n.title })}</p>
                   {!readOnly && (
                     <button type="button" onClick={() => onChoices(choices.slice(0, i))} className="inline-flex shrink-0 items-center gap-1 text-xs text-muted hover:text-fg">
-                      <Undo2 size={12} aria-hidden /> Change
+                      <Undo2 size={12} aria-hidden /> {tr("Change")}
                     </button>
                   )}
                 </div>
@@ -46,7 +48,7 @@ export function DecisionControls({ activity, choices, onChoices, readOnly }: { a
       {node && !readOnly ? (
         <fieldset className="space-y-3 animate-rise" key={node.id}>
           <legend className="sr-only">{node.prompt}</legend>
-          <p className="font-mono text-xs font-semibold text-accent">Decision {stepNo} · {node.title}</p>
+          <p className="font-mono text-xs font-semibold text-accent">{tr("Decision {n} · {title}", { n: stepNo, title: node.title })}</p>
           <p className="text-sm leading-relaxed text-fg">{node.situation}</p>
           {node.facts && (
             <dl className="grid grid-cols-2 gap-2">
@@ -85,17 +87,18 @@ export function DecisionControls({ activity, choices, onChoices, readOnly }: { a
               setPending(undefined);
             }}
           >
-            Decide <ArrowRight size={15} aria-hidden />
+            {tr("Decide")} <ArrowRight size={15} aria-hidden />
           </Button>
         </fieldset>
       ) : walk.finished ? (
-        <p className="rounded-lg border border-ok/30 bg-ok-bg p-3 text-sm text-fg">You reached the end of the scenario. Submit your decisions, or change any of them above.</p>
+        <p className="rounded-lg border border-ok/30 bg-ok-bg p-3 text-sm text-fg">{tr("You reached the end of the scenario. Submit your decisions, or change any of them above.")}</p>
       ) : null}
     </div>
   );
 }
 
 export function DecisionStage({ activity, choices }: { activity: DecisionActivity; choices: Choices }) {
+  const { tr } = useI18n();
   const walk = walkDecision(activity, { choices });
   const currentId = walk.currentNodeId ?? walk.steps[walk.steps.length - 1]?.nodeId ?? activity.start;
   const withScreen = [...activity.nodes].filter((n) => n.screen);
@@ -104,16 +107,16 @@ export function DecisionStage({ activity, choices }: { activity: DecisionActivit
   const last = walk.steps[walk.steps.length - 1];
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-fg">Situation</h3>
+      <h3 className="text-sm font-semibold text-fg">{tr("Situation")}</h3>
       {screenNode?.screen && <ScreenRenderer screen={screenNode.screen} />}
       {last && (
         <div className="rounded-xl border border-line bg-surface p-4" aria-live="polite">
-          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Latest consequence</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{tr("Latest consequence")}</p>
           <p className="mt-1 text-sm text-fg">{last.consequence}</p>
         </div>
       )}
       <div className="rounded-xl border border-line bg-surface p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Route</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{tr("Route")}</p>
         <ol className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
           {walk.steps.map((s, i) => (
             <li key={i} className="flex items-center gap-1.5">
@@ -121,7 +124,7 @@ export function DecisionStage({ activity, choices }: { activity: DecisionActivit
               <ArrowRight size={11} className="text-subtle" aria-hidden />
             </li>
           ))}
-          <li className="rounded-full border border-dashed border-line-strong px-2 py-0.5 text-subtle">{walk.finished ? "End" : activity.nodes.find((n) => n.id === walk.currentNodeId)?.title}</li>
+          <li className="rounded-full border border-dashed border-line-strong px-2 py-0.5 text-subtle">{walk.finished ? tr("End") : activity.nodes.find((n) => n.id === walk.currentNodeId)?.title}</li>
         </ol>
       </div>
     </div>

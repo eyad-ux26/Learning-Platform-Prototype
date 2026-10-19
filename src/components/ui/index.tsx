@@ -6,6 +6,7 @@ import { twMerge } from "tailwind-merge";
 import { X } from "lucide-react";
 import Link from "next/link";
 import { forwardRef, useId, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useI18n } from "@/i18n";
 
 export const cn = (...v: Parameters<typeof clsx>) => twMerge(clsx(v));
 
@@ -166,6 +167,7 @@ export function Dialog({
   footer?: ReactNode;
   wide?: boolean;
 }) {
+  const { tr } = useI18n();
   return (
     <RDialog.Root open={open} onOpenChange={onOpenChange}>
       <RDialog.Portal>
@@ -178,7 +180,7 @@ export function Dialog({
         >
           <div className="flex items-start justify-between gap-4">
             <RDialog.Title className="text-lg font-semibold text-fg">{title}</RDialog.Title>
-            <RDialog.Close className="-m-2 rounded-lg p-2 text-muted hover:text-fg" aria-label="Close dialog">
+            <RDialog.Close className="-m-2 rounded-lg p-2 text-muted hover:text-fg" aria-label={tr("Close dialog")}>
               <X size={18} />
             </RDialog.Close>
           </div>
@@ -244,6 +246,7 @@ export function Field({ label, hint, children, htmlFor }: { label: string; hint?
 export const inputClass =
   "w-full rounded-xl border border-line-strong bg-canvas px-3 py-2.5 text-sm text-fg placeholder:text-subtle focus-visible:outline-2 focus-visible:outline-accent";
 
+/** Rendered before app state exists (so it cannot read the language): callers pass a translated label when they can. */
 export function Spinner({ label = "Loading" }: { label?: string }) {
   return (
     <div role="status" className="flex items-center gap-3 text-sm text-muted">

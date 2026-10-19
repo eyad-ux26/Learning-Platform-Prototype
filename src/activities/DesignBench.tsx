@@ -8,6 +8,7 @@ import {
 import type { Behaviour, DesignBenchActivity, DesignDimension, Evaluation } from "@/domain/types";
 import { playSfx } from "@/components/sfx";
 import { Kbd, cn } from "@/components/ui";
+import { useI18n } from "@/i18n";
 import { ProposalPreview, type PreviewState } from "./ProposalPreview";
 
 /** One glyph per behaviour token, so every option can be recognised at a glance. */
@@ -46,6 +47,7 @@ export function DesignBenchControls({
   readOnly?: boolean;
   evaluation?: Evaluation;
 }) {
+  const { tr } = useI18n();
   const total = activity.decisions.length;
   const done = activity.decisions.filter((d) => selections[d.id]).length;
   const firstOpen = Math.max(0, activity.decisions.findIndex((d) => !selections[d.id]));
@@ -68,7 +70,7 @@ export function DesignBenchControls({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between font-mono text-xs text-muted" aria-live="polite">
-        <span>{done} of {total} decisions made</span>
+        <span>{tr("{n} of {m} decisions made", { n: done, m: total })}</span>
         <span className="flex gap-1" aria-hidden>
           {activity.decisions.map((x, i) => (
             <span key={x.id} className={cn("h-1.5 rounded-full transition-all", i === step ? "w-5" : "w-1.5", selections[x.id] ? "bg-brand-strong" : "bg-line-strong")} />
@@ -77,7 +79,7 @@ export function DesignBenchControls({
       </div>
 
       {/* Layers panel: every decision, what you chose, jump to any. */}
-      <ol aria-label="Decisions" className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <ol aria-label={tr("Decisions")} className="overflow-hidden rounded-2xl border border-line bg-surface">
         {activity.decisions.map((x, i) => {
           const chosen = x.options.find((o) => o.id === selections[x.id]);
           const dm = DIMENSION[x.dimension];
@@ -92,8 +94,8 @@ export function DesignBenchControls({
               >
                 <span className="font-mono text-[11px] text-subtle">{i + 1}</span>
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ color: dm.hue, background: `${dm.hue}1f` }}><Icon size={14} aria-hidden /></span>
-                <span className="font-mono text-xs" style={{ color: dm.hue }}>{dm.label}</span>
-                <span className="min-w-0 flex-1 truncate text-end text-xs">{chosen ? chosen.label : "Not chosen"}</span>
+                <span className="font-mono text-xs" style={{ color: dm.hue }}>{tr(dm.label)}</span>
+                <span className="min-w-0 flex-1 truncate text-end text-xs">{chosen ? chosen.label : tr("Not chosen")}</span>
               </button>
             </li>
           );
@@ -111,7 +113,7 @@ export function DesignBenchControls({
           choose(d.options[n - 1].id);
         }}
       >
-        <legend className="font-mono text-xs font-semibold" style={{ color: dim.hue }}>{dim.label} · step {step + 1} of {total}</legend>
+        <legend className="font-mono text-xs font-semibold" style={{ color: dim.hue }}>{tr("{dim} · step {n} of {m}", { dim: tr(dim.label), n: step + 1, m: total })}</legend>
         <h3 className="font-display text-2xl font-extrabold leading-tight tracking-tight text-fg">{d.prompt}</h3>
         <div className="grid grid-cols-2 gap-2.5">
           {d.options.map((o, i) => {
@@ -137,7 +139,7 @@ export function DesignBenchControls({
                   type="button"
                   onClick={() => setTip(tip === o.id ? null : o.id)}
                   aria-expanded={tip === o.id}
-                  aria-label={`Trade-offs: ${o.label}`}
+                  aria-label={tr("Trade-offs: {label}", { label: o.label })}
                   className="absolute bottom-2 end-2 flex h-6 w-6 items-center justify-center rounded-md border border-line-strong bg-canvas/60 font-mono text-xs text-muted hover:text-fg"
                 >
                   ±
@@ -153,7 +155,7 @@ export function DesignBenchControls({
           </p>
         )}
         <div className="flex gap-2">
-          <button type="button" onClick={() => go(step - 1)} disabled={step === 0} aria-label="Previous decision" className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-raised text-muted hover:text-fg disabled:opacity-40">
+          <button type="button" onClick={() => go(step - 1)} disabled={step === 0} aria-label={tr("Previous decision")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-raised text-muted hover:text-fg disabled:opacity-40">
             <ArrowLeft size={16} aria-hidden />
           </button>
           <button
@@ -162,11 +164,11 @@ export function DesignBenchControls({
             disabled={step === total - 1 || !selections[d.id]}
             className={cn("flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors", selections[d.id] && step < total - 1 ? "bg-brand text-white hover:bg-brand-strong" : "bg-line text-subtle")}
           >
-            {step === total - 1 ? "Last decision" : "Next decision"} <ArrowRight size={15} aria-hidden />
+            {step === total - 1 ? tr("Last decision") : tr("Next decision")} <ArrowRight size={15} aria-hidden />
           </button>
         </div>
       </fieldset>
-      {evaluation && <p className="text-xs text-subtle">Your submitted choices are shown. Use “Revise and resubmit” to change them.</p>}
+      {evaluation && <p className="text-xs text-subtle">{tr("Your submitted choices are shown. Use “Revise and resubmit” to change them.")}</p>}
     </div>
   );
 }
@@ -184,11 +186,12 @@ export function DesignBenchStage({
   onPreview: (s: PreviewState) => void;
   readOnly?: boolean;
 }) {
+  const { tr } = useI18n();
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-fg">Interface preview</h3>
-        <p className="text-xs text-subtle">Interactive. Try it the way a user would.</p>
+        <h3 className="text-sm font-semibold text-fg">{tr("Interface preview")}</h3>
+        <p className="text-xs text-subtle">{tr("Interactive. Try it the way a user would.")}</p>
       </div>
       <ProposalPreview activity={activity} selections={selections} state={preview} onChange={onPreview} readOnly={readOnly} />
     </div>
