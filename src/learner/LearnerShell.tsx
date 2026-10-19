@@ -58,7 +58,7 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
               onClick={() => dispatch({ type: "setPreferences", prefs: { sound: !soundOn } })}
               aria-label={soundOn ? tr("Turn sound off") : tr("Turn sound on")}
               aria-pressed={soundOn}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-raised text-muted hover:text-fg"
+              className="hidden h-10 w-10 items-center justify-center rounded-xl border border-line bg-raised text-muted hover:text-fg sm:flex"
             >
               {soundOn ? <Volume2 size={17} aria-hidden /> : <VolumeX size={17} aria-hidden />}
             </button>

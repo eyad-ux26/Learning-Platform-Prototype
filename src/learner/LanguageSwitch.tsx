@@ -29,7 +29,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
             playSfx("tap");
             dispatch({ type: "setLanguage", language: o.id });
           }}
-          className={cn("min-h-9 min-w-10 rounded-[10px] px-2.5 text-sm font-semibold transition-colors", locale === o.id ? "bg-brand text-white" : "text-muted hover:text-fg")}
+          className={cn("min-h-9 min-w-9 rounded-[10px] px-2 text-[13px] font-semibold transition-colors sm:min-w-10 sm:px-2.5 sm:text-sm", locale === o.id ? "bg-brand text-white" : "text-muted hover:text-fg")}
         >
           {o.label}
         </button>

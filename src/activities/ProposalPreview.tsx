@@ -587,7 +587,7 @@ export function ProposalPreview({
           <span className="rounded bg-pv-fg px-1.5 py-0.5 text-[11px] font-bold text-white">{cfg.app}</span>
           <span className="truncate text-sm font-semibold text-pv-fg">{cfg.screenTitle}</span>
         </div>
-        <div className="flex flex-col gap-4 p-4">
+        <div className="flex flex-col gap-7 p-4">
           <div>
             <div className="flex items-center gap-2 text-base font-semibold text-pv-fg">
               <FileText size={16} className="text-pv-muted" aria-hidden />
@@ -628,7 +628,7 @@ export function ProposalPreview({
 
           <Region dim="commitment">
             {((state.reviewOpen && !applied) || (state.dialogOpen && !applied) || saveButton || commitControls) && (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-7">
 
           {state.reviewOpen && !applied && (
             <div className="space-y-3 rounded-lg border border-pv-line bg-pv-bg p-3">

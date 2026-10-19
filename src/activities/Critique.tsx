@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Plus, X } from "lucide-react";
 import type { CritiqueActivity, Evaluation, Verdict } from "@/domain/types";
 import { cn, Kbd } from "@/components/ui";
@@ -146,16 +146,13 @@ export function CritiqueControls({
   const r = hotspot ? (reviews[hotspot.id] ?? {}) : {};
   const reasons = activity.reasons.filter((x) => x.appliesTo === r.verdict);
 
-  // Start on the first element that still needs a verdict and a reason (once, so it never loops).
-  const autoSelected = useRef(false);
+  // Whenever nothing is selected (first visit, after a reset) start on the first element that still needs a verdict and a reason.
   useEffect(() => {
-    if (autoSelected.current) return;
-    autoSelected.current = true;
-    if (selected) return;
-    const first = hotspots.find((h) => !isDone(reviews[h.id]));
+    if (selected || readOnly) return;
+    const first = hotspots.find((h) => !isDone(reviews[h.id])) ?? hotspots[0];
     if (first) onSelect(first.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selected, readOnly]);
 
   let nextId: string | undefined;
   if (hotspot) {

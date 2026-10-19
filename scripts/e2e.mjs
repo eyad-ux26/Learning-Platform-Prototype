@@ -238,9 +238,11 @@ await journey("H. Switch to Arabic, work in right-to-left, switch back", async (
   await shot("19-arabic-workspace");
   // Critique: the reason picker must list reasons in Arabic (machine values are never translated).
   await go("/paths/calibrated-trust/practice/critique-recap");
-  await page.locator("ol button").first().click();
-  await page.locator("fieldset label").nth(1).click();
-  check((await page.locator("select").first().locator("option").count()) > 1, "critique reason list should not be empty in Arabic");
+  const radios = () => page.locator("input[type=radio]").count();
+  const before = await radios();
+  await page.locator("label").filter({ has: page.locator("input[type=radio]") }).nth(1).click();
+  await page.waitForTimeout(300);
+  check((await radios()) > before + 2, "critique reason list should not be empty in Arabic");
   // Egyptian variant
   await page.getByRole("button", { name: "العربية المصرية" }).click();
   await page.waitForFunction(() => document.documentElement.lang === "ar-EG" && document.documentElement.dir === "rtl");
@@ -256,6 +258,47 @@ await journey("H. Switch to Arabic, work in right-to-left, switch back", async (
   check((await page.locator("fieldset input:checked").count()) + (await page.locator("ol[aria-label='Decisions'] button").count()) > 0, "decisions should still render");
 });
 
+await journey("I. Critique one element at a time, then open the ship review tickets", async () => {
+  await go("/paths/calibrated-trust/practice/critique-recap");
+  // Start clean: earlier journeys may have left a draft here.
+  await page.getByRole("button", { name: "Reset" }).click();
+  await page.getByRole("button", { name: "Reset response" }).click();
+  await shot("22-critique-working");
+  for (let i = 0; i < 8; i++) {
+    await page.getByText(new RegExp(`Element ${i + 1} of 8`)).waitFor();
+    // Reasons appear only after a verdict (progressive disclosure).
+    check((await page.locator('input[name^="reason-"]').count()) === 0, "reasons should appear after the verdict");
+    await page.locator("label").filter({ hasText: i % 2 ? "Works for the reader" : "Needs a change" }).click();
+    await page.locator('label:has(input[name^="reason-"])').first().click();
+    if (i < 7) await page.getByRole("button", { name: /Next element/ }).click();
+  }
+  await page.getByRole("button", { name: "Submit response" }).click();
+  await page.locator("#feedback-heading").waitFor();
+  check(await page.getByText("JUDGED RIGHT", { exact: true }).isVisible(), "ship review should show the judged-right card");
+  check(await page.getByText("Element by element").isVisible(), "ship review should list element tickets");
+  const open = page.locator("details, [aria-expanded='true']").first();
+  check(await open.isVisible(), "a ticket should be open and highlighted");
+  await shot("23-critique-ship-review", { fullPage: true });
+});
+
+await switchTo("Priya");
+await journey("J. Decision scenario as a chat, then the route tickets", async () => {
+  await go("/paths/calibrated-trust/practice/scenario-replan");
+  await shot("24-decision-working");
+  for (let i = 0; i < 6; i++) {
+    const decide = page.getByRole("button", { name: /^Decide/ });
+    if (!(await decide.count())) break;
+    await page.locator('label:has(input[type=radio])').first().click();
+    await decide.click();
+    await page.waitForTimeout(200);
+  }
+  await page.getByRole("button", { name: "Submit response" }).click();
+  await page.locator("#feedback-heading").waitFor();
+  check(await page.getByText("HELD UP", { exact: true }).isVisible(), "ship review should show the held-up card");
+  check(await page.getByText(/Your route/).isVisible(), "ship review should list the route tickets");
+  await shot("25-decision-ship-review", { fullPage: true });
+});
+
 await journey("Responsive layouts (1024 and 390)", async () => {
   await switchTo("Priya");
   for (const [w, h, tag] of [[1024, 900, "tablet"], [390, 844, "mobile"]]) {
@@ -268,14 +311,16 @@ await journey("Responsive layouts (1024 and 390)", async () => {
       check(await page.getByText("Interface under review").isVisible(), "tablet shows response and interface side by side");
     }
     if (tag === "mobile") {
-      check(await page.getByRole("tab", { name: "Interface" }).isVisible(), "mobile workspace should use section tabs");
-      await page.getByRole("tab", { name: "Interface" }).click();
-      await page.getByRole("button", { name: /Element 3/ }).click();
-      // Selecting an element moves to the review section, with state preserved.
-      await page.getByRole("region", { name: /Review element 3/ }).waitFor();
-      await page.getByRole("radio", { name: "Problematic" }).check({ force: true });
-      await page.getByRole("tab", { name: "Interface" }).click();
-      check(await page.getByRole("button", { name: /Element 3: .*marked problematic/ }).isVisible(), "interface should keep the review mark");
+      check(await page.getByRole("tab", { name: "Live" }).isVisible(), "mobile workspace should use Brief / Live tabs");
+      await page.getByRole("tab", { name: "Live" }).click();
+      const screen = page.getByRole("group", { name: /interface preview/i });
+      // Tuck the sheet away to see the whole preview, then pick an element in it: the sheet comes back with that question.
+      await page.getByRole("button", { name: "Review", exact: true }).click();
+      await screen.getByRole("button", { name: /Element 3/ }).click();
+      // The question for the selected element is in the bottom sheet, with state preserved.
+      await page.getByText("Element 3 of 8").waitFor();
+      await page.locator("label").filter({ hasText: "Needs a change" }).click();
+      check(await screen.getByRole("button", { name: /Element 3: .*marked problematic/ }).isVisible(), "interface should keep the review mark");
     }
     await shot(`r-${tag}-workspace`);
   }

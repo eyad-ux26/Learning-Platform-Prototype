@@ -181,7 +181,7 @@ export function FeedbackPanel({
         <section aria-labelledby="fb-improve" className="space-y-3">
           <h3 id="fb-improve" className="font-mono text-xs font-semibold text-bad">{tr("What needs improvement")}</h3>
           {unmet.map((c, i) => (
-            <CriterionCard key={c.criterionId} title={criterion(c.criterionId)?.statement ?? c.criterionId} skill={skillName(c.skillId)} result={c} tone="warn" defaultOpen={i === 0} />
+            <CriterionCard key={c.criterionId} title={criterion(c.criterionId)?.statement ?? c.criterionId} skill={skillName(c.skillId)} result={c} tone="warn" defaultOpen={i === 0 && !critique && !decision} />
           ))}
         </section>
       )}

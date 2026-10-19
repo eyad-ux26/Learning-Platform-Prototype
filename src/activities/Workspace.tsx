@@ -52,7 +52,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   const [benchDim, setBenchDim] = useState<DesignDimension | undefined>();
   const [pending, setPending] = useState<string | undefined>();
   const [reviewNode, setReviewNode] = useState<string | undefined>();
-  const [sheetOpen, setSheetOpen] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(!!usableDraft);
   const [confirmReveal, setConfirmReveal] = useState(false);
   const [confirmHint, setConfirmHint] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -126,7 +126,11 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   } else if (activity.template === "critique" && response.template === "critique") {
     controlsLabel = "Review";
     const selected = (ui.selected as string | undefined) ?? undefined;
-    const onSelect = (id: string) => updateUi({ selected: id || undefined });
+    const onSelect = (id: string) => {
+      updateUi({ selected: id || undefined });
+      // Picking an element in the preview brings up its question (the sheet, below lg).
+      if (id && phase === "working") setSheetOpen(true);
+    };
     const onReview = (id: string, patch: (typeof response.reviews)[string]) => updateResponse({ template: "critique", reviews: { ...response.reviews, [id]: patch } });
     controls = <CritiqueControls activity={activity} reviews={response.reviews} selected={selected} onSelect={onSelect} onReview={onReview} readOnly={readOnly} />;
     stage = <CritiqueStage activity={activity} reviews={response.reviews} selected={selected} onSelect={onSelect} evaluation={evaluation} />;
@@ -324,7 +328,17 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
 
       {/* Mobile and tablet section tabs */}
       <div className="sticky top-16 z-30 -mx-4 mt-4 bg-canvas/95 px-4 py-2 xl:hidden">
-        <Tabs numbered label={tr("Workspace sections")} tabs={tabs} value={section} onChange={setSection} />
+        <Tabs
+          numbered
+          label={tr("Workspace sections")}
+          tabs={tabs}
+          value={section}
+          onChange={(v) => {
+            setSection(v);
+            // Below lg the questions are a sheet: open it on Live, tuck it away while reading the brief.
+            if (phase === "working") setSheetOpen(v !== "brief");
+          }}
+        />
       </div>
 
       <div className={cn("mt-4 grid gap-6", "lg:grid-cols-[minmax(320px,400px)_1fr] xl:grid-cols-[300px_minmax(340px,400px)_1fr]")}>
