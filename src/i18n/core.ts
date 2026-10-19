@@ -173,5 +173,5 @@ export const MACHINE_KEYS = new Set([
   "id", "pathId", "skillId", "activityId", "criterionId", "contextKey", "template", "kind", "behaviour", "dimension", "cover", "icon",
   "iso", "valueIso", "type", "level", "availability", "verdict", "appliesTo", "correctReasons", "oneOf", "evidenceFrom", "start", "next",
   "nodeId", "choiceId", "decision", "tone", "hotspot", "alternativeFor", "relatedConcepts", "practiceActivityIds", "requiredSkillIds",
-  "freeSampleActivityIds", "state", "variant",
+  "freeSampleActivityIds", "state", "variant", "hotspot", "rowHotspots",
 ]);

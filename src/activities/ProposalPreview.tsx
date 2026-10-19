@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { History, Info, MessageSquareText, RotateCcw, Settings, Sparkles, Undo2, X, FileText, CheckCircle2, Clock } from "lucide-react";
 import type { Behaviour, DesignBenchActivity, DesignDimension } from "@/domain/types";
 import { cn } from "@/components/ui";
@@ -36,6 +36,46 @@ const DEFAULTS: Record<DesignDimension, Behaviour> = {
   recovery: "none",
   scope: "count",
 };
+
+/** Which dimension the current decision step is about; undefined means no highlight (e.g. the admin preview). */
+const ActiveDimensionContext = createContext<DesignDimension | undefined>(undefined);
+
+/**
+ * Marks one part of the preview as the region a decision is about. Purely visual: the active region gets a solid
+ * outline, a tint, selection handles and a name tag; the other regions get a dashed outline and are dimmed while one
+ * is highlighted. Negative margin plus padding keep the layout where it was. Renders nothing for an empty region.
+ */
+function Region({ dim, children }: { dim: DesignDimension; children: ReactNode }) {
+  const active = useContext(ActiveDimensionContext);
+  const { tr } = useI18n();
+  if (children === null || children === undefined || children === false) return null;
+  const tags: Record<DesignDimension, string> = {
+    presentation: tr("Look · how it appears"),
+    uncertainty: tr("Doubt · how doubt is shown"),
+    evidence: tr("Proof · what backs it"),
+    explanation: tr("Reason · why this value"),
+    correction: tr("Fix · how to correct it"),
+    commitment: tr("Commit · how it goes live"),
+    recovery: tr("Recover · after apply"),
+    scope: tr("Scope · what changes"),
+  };
+  const on = active === dim;
+  return (
+    <div
+      data-tag={on ? tags[dim] : undefined}
+      data-active={on ? "" : undefined}
+      className={cn(
+        active !== undefined && "relative -m-1.5 rounded-lg p-1.5 transition-[opacity,background-color,outline-color]",
+        on && "hl sel-snap bg-[rgba(123,108,255,0.09)] outline-2 outline-offset-4 outline-[#7b6cff]",
+        active !== undefined &&
+          !on &&
+          "group-has-[[data-active]]/pv:opacity-60 group-has-[[data-active]]/pv:outline-dashed group-has-[[data-active]]/pv:outline-[1.5px] group-has-[[data-active]]/pv:outline-offset-[3px] group-has-[[data-active]]/pv:outline-[rgba(106,92,240,0.55)]",
+      )}
+    >
+      {children}
+    </div>
+  );
+}
 
 export function behavioursFor(activity: DesignBenchActivity, selections: Record<string, string>): Record<DesignDimension, Behaviour> {
   const out = { ...DEFAULTS };
@@ -84,12 +124,15 @@ export function ProposalPreview({
   state,
   onChange,
   readOnly,
+  activeDimension,
 }: {
   activity: DesignBenchActivity;
   selections: Record<string, string>;
   state: PreviewState;
   onChange: (s: PreviewState) => void;
   readOnly?: boolean;
+  /** The dimension of the decision being made: its region is highlighted. Omit for no highlight. */
+  activeDimension?: DesignDimension;
 }) {
   const { tr, L, locale, date } = useI18n();
   const b = behavioursFor(activity, selections);
@@ -304,7 +347,9 @@ export function ProposalPreview({
     if (p.kind === "field") {
       const showInField = b.presentation !== "chip" || applied;
       return (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
+          <Region dim="presentation">
+           <div className="space-y-2">
           <div className="text-xs font-medium text-pv-muted">{p.label}</div>
           <div className="flex flex-wrap items-center gap-2">
             {showInField ? fieldBox(reverted ? tr("No due date") : value, b.presentation === "provisional") : <span className="inline-flex h-9 items-center rounded-md border border-pv-line bg-pv-surface px-2.5 text-sm text-pv-muted">{tr("No due date")}</span>}
@@ -316,8 +361,15 @@ export function ProposalPreview({
             {b.presentation === "as-fact" && !applied && !reverted && <span className="sr-only">{tr("Proposed value, shown as if confirmed")}</span>}
             {applied && <span className="inline-flex items-center gap-1 text-xs text-pv-ok"><CheckCircle2 size={13} aria-hidden /> {tr("Set")}</span>}
           </div>
-          {!reverted && uncertainty}
-          {!reverted && (evidence || correction) && <div className="flex flex-wrap items-center gap-3">{evidence}{correction}</div>}
+           </div>
+          </Region>
+          {!reverted && <Region dim="uncertainty">{uncertainty}</Region>}
+          {!reverted && (evidence || correction) && (
+            <div className="flex flex-wrap items-center gap-3">
+              <Region dim="evidence">{evidence}</Region>
+              <Region dim="correction">{correction}</Region>
+            </div>
+          )}
         </div>
       );
     }
@@ -341,39 +393,72 @@ export function ProposalPreview({
         </p>
       );
       const meta = (
-        <div className="space-y-2">
-          {uncertainty}
-          {b.evidence !== "source" && evidence}
-          {explanation}
-          {correction}
-        </div>
+        <>
+          <Region dim="uncertainty">{uncertainty}</Region>
+          <Region dim="evidence">{b.evidence !== "source" && evidence}</Region>
+          <Region dim="explanation">{explanation}</Region>
+          <Region dim="correction">{correction}</Region>
+        </>
       );
-      if (b.presentation === "as-fact" || applied)
+      // The source markers sit inside the text, so with a source the text itself is the evidence region.
+      const withSource = b.evidence === "source";
+      if (b.presentation === "as-fact" || applied) {
+        const heading = <div className="text-xs font-semibold uppercase tracking-wide text-pv-muted">{tr("Summary")}</div>;
         return (
-          <div className="space-y-2">
-            <div className="text-xs font-semibold uppercase tracking-wide text-pv-muted">{tr("Summary")}</div>
-            {textNode}
+          <div className="flex flex-col gap-2">
+            {withSource ? (
+              <>
+                <Region dim="presentation">{heading}</Region>
+                <Region dim="evidence">{textNode}</Region>
+              </>
+            ) : (
+              <Region dim="presentation">
+                <div className="space-y-2">
+                  {heading}
+                  {textNode}
+                </div>
+              </Region>
+            )}
             {!applied && meta}
           </div>
         );
+      }
+      const draftHeader = (
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-pv-ai">
+          <Sparkles size={13} aria-hidden /> {b.presentation === "chip" ? tr("Assistant draft · side panel") : tr("Assistant draft · not reviewed")}
+        </div>
+      );
       return (
-        <div className={cn("space-y-2 rounded-lg border p-3", b.presentation === "chip" ? "border-pv-line bg-pv-surface" : "border-dashed border-[#b8a3f0] bg-pv-ai-bg")}>
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-pv-ai">
-            <Sparkles size={13} aria-hidden /> {b.presentation === "chip" ? tr("Assistant draft · side panel") : tr("Assistant draft · not reviewed")}
-          </div>
-          {textNode}
+        <div className={cn("flex flex-col gap-2 rounded-lg border p-3", b.presentation === "chip" ? "border-pv-line bg-pv-surface" : "border-dashed border-[#b8a3f0] bg-pv-ai-bg")}>
+          {withSource ? (
+            <>
+              <Region dim="presentation">{draftHeader}</Region>
+              <Region dim="evidence">{textNode}</Region>
+            </>
+          ) : (
+            <Region dim="presentation">
+              <div className="space-y-2">
+                {draftHeader}
+                {textNode}
+              </div>
+            </Region>
+          )}
           {meta}
         </div>
       );
     }
     if (p.kind === "change") {
       return (
-        <div className={cn("space-y-2 rounded-lg border p-3", applied ? "border-pv-line bg-pv-surface" : "border-dashed border-[#b8a3f0] bg-pv-ai-bg")}>
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-pv-ai">
-            <Sparkles size={13} aria-hidden /> {applied ? tr("Change applied") : reverted ? tr("Change reverted") : p.label}
-          </div>
-          <p className="text-sm font-medium text-pv-fg">{reverted ? tr("Back at Thu 12 Mar, 14:00–14:45") : value}</p>
-          {!reverted && explanation}
+        <div className={cn("flex flex-col gap-2 rounded-lg border p-3", applied ? "border-pv-line bg-pv-surface" : "border-dashed border-[#b8a3f0] bg-pv-ai-bg")}>
+          <Region dim="presentation">
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-pv-ai">
+                <Sparkles size={13} aria-hidden /> {applied ? tr("Change applied") : reverted ? tr("Change reverted") : p.label}
+              </div>
+              <p className="text-sm font-medium text-pv-fg">{reverted ? tr("Back at Thu 12 Mar, 14:00–14:45") : value}</p>
+            </div>
+          </Region>
+          {!reverted && <Region dim="explanation">{explanation}</Region>}
           <p className="text-xs text-pv-muted">{p.impactText}</p>
         </div>
       );
@@ -382,11 +467,17 @@ export function ProposalPreview({
     const rows = p.scopeRows ?? [];
     const visibleRows = state.excludeExceptions ? rows.filter((r) => !r[3]) : rows;
     return (
-      <div className="space-y-2 rounded-lg border border-dashed border-[#b8a3f0] bg-pv-ai-bg p-3">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-pv-ai">
-          <Sparkles size={13} aria-hidden /> {applied ? tr("Update applied") : reverted ? tr("Batch reverted") : p.label}
-        </div>
-        <p className="text-sm font-medium text-pv-fg">{p.value}</p>
+      <div className="flex flex-col gap-2 rounded-lg border border-dashed border-[#b8a3f0] bg-pv-ai-bg p-3">
+        <Region dim="presentation">
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-pv-ai">
+              <Sparkles size={13} aria-hidden /> {applied ? tr("Update applied") : reverted ? tr("Batch reverted") : p.label}
+            </div>
+            <p className="text-sm font-medium text-pv-fg">{p.value}</p>
+          </div>
+        </Region>
+        <Region dim="scope">
+         <div className="space-y-2">
         {b.scope === "count" && <p className="text-xs text-pv-muted">{state.excludeExceptions ? tr("1,090 products will change price") : p.scopeCount}</p>}
         {(b.scope === "sample" || b.scope === "diff") && (
           <div className="overflow-x-auto rounded-md border border-pv-line bg-pv-surface">
@@ -411,6 +502,8 @@ export function ProposalPreview({
             {p.scopeExcluded}
           </label>
         )}
+         </div>
+        </Region>
       </div>
     );
   })();
@@ -456,9 +549,31 @@ export function ProposalPreview({
       );
     return items.length ? <div className="space-y-2">{items}</div> : null;
   })();
+  // While the recovery decision is the active one, an empty region still says what it is waiting for.
+  const recoveryChoice = activity.decisions.find((d) => d.dimension === "recovery");
+  const recoveryNode =
+    recovery ??
+    (activeDimension === "recovery" ? (
+      <p className="rounded-md border border-dashed border-pv-line px-3 py-2 text-xs text-pv-muted">
+        {!recoveryChoice || !selections[recoveryChoice.id]
+          ? tr("Choose what happens after apply.")
+          : b.recovery === "none"
+            ? tr("Nothing is offered after applying.")
+            : tr("Shown once the change is applied.")}
+      </p>
+    ) : null);
+
+  // The commit area groups whatever lets the user commit: review panel, dialog, save and accept controls.
+  const saveButton =
+    b.commitment === "on-save" && !applied && !readOnly ? (
+      <button type="button" onClick={() => commit(b.presentation === "as-fact" ? "Saved with the task. The suggested value was committed along with the other edits." : "Saved with the task, including the suggested value.")} className="inline-flex h-8 items-center rounded-md border border-pv-line bg-pv-surface px-3 text-sm font-medium text-pv-fg">
+        {tr("Save task")}
+      </button>
+    ) : null;
 
   return (
-    <div className="rounded-xl border border-line-strong bg-pv-bg p-1.5" role="group" aria-label={tr("{app} interface preview", { app: cfg.app })}>
+    <ActiveDimensionContext.Provider value={activeDimension}>
+    <div className="group/pv rounded-xl border border-line-strong bg-pv-bg p-1.5" role="group" aria-label={tr("{app} interface preview", { app: cfg.app })}>
       <div className="flex items-center justify-between gap-2 px-2 pb-1.5 pt-0.5">
         <div className="flex items-center gap-1.5" aria-hidden>
           <span className="h-2.5 w-2.5 rounded-full bg-[#d4d8e0]" />
@@ -472,7 +587,7 @@ export function ProposalPreview({
           <span className="rounded bg-pv-fg px-1.5 py-0.5 text-[11px] font-bold text-white">{cfg.app}</span>
           <span className="truncate text-sm font-semibold text-pv-fg">{cfg.screenTitle}</span>
         </div>
-        <div className="space-y-4 p-4">
+        <div className="flex flex-col gap-4 p-4">
           <div>
             <div className="flex items-center gap-2 text-base font-semibold text-pv-fg">
               <FileText size={16} className="text-pv-muted" aria-hidden />
@@ -499,6 +614,7 @@ export function ProposalPreview({
           )}
 
           {state.sourceOpen && (
+            <Region dim="evidence">
             <div className="rounded-md border border-pv-line bg-pv-bg p-3">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-semibold text-pv-fg">{p.source.title}</div>
@@ -507,7 +623,12 @@ export function ProposalPreview({
               <div className="text-[11px] text-pv-muted">{p.source.meta}</div>
               <p className="mt-2 text-sm leading-relaxed text-pv-fg">{highlight(p.source.body, p.source.highlight)}</p>
             </div>
+            </Region>
           )}
+
+          <Region dim="commitment">
+            {((state.reviewOpen && !applied) || (state.dialogOpen && !applied) || saveButton || commitControls) && (
+              <div className="flex flex-col gap-4">
 
           {state.reviewOpen && !applied && (
             <div className="space-y-3 rounded-lg border border-pv-line bg-pv-bg p-3">
@@ -555,16 +676,17 @@ export function ProposalPreview({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {b.commitment === "on-save" && !applied && !readOnly && (
-              <button type="button" onClick={() => commit(b.presentation === "as-fact" ? "Saved with the task. The suggested value was committed along with the other edits." : "Saved with the task, including the suggested value.")} className="inline-flex h-8 items-center rounded-md border border-pv-line bg-pv-surface px-3 text-sm font-medium text-pv-fg">
-                {tr("Save task")}
-              </button>
+          {(saveButton || commitControls) && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {saveButton}
+              {commitControls}
+            </div>
+          )}
+              </div>
             )}
-            {commitControls}
-          </div>
+          </Region>
 
-          {recovery}
+          <Region dim="recovery">{recoveryNode}</Region>
         </div>
       </div>
       {state.log.length > 0 && (
@@ -576,6 +698,7 @@ export function ProposalPreview({
         </div>
       )}
     </div>
+    </ActiveDimensionContext.Provider>
   );
 }
 

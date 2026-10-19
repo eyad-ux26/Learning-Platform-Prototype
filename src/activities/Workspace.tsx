@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, BookOpen, CheckCircle2, Clock, HelpCircle, Lightbulb, Lock, RotateCcw, Save, Send } from "lucide-react";
-import { checkCompleteness, emptyResponse, evaluate, skillsAssessedBy } from "@/domain/assessment";
-import type { Activity, ActivityResponse, Attempt, Evaluation, WorkDraft } from "@/domain/types";
+import { ArrowLeft, BookOpen, CheckCircle2, ChevronDown, Clock, HelpCircle, Lightbulb, Lock, RotateCcw, Save, Send } from "lucide-react";
+import { checkCompleteness, emptyResponse, evaluate, skillsAssessedBy, walkDecision } from "@/domain/assessment";
+import type { Activity, ActivityResponse, Attempt, DesignDimension, Evaluation, WorkDraft } from "@/domain/types";
 import { t } from "@/i18n/en";
 import { useI18n } from "@/i18n";
 import { useApp, type PathView } from "@/state/AppState";
@@ -14,8 +14,8 @@ import { SkillStatusBadge } from "@/components/SkillStatus";
 import { SkillRing } from "@/components/SkillRing";
 import { playSfx } from "@/components/sfx";
 import { DesignBenchControls, DesignBenchStage } from "./DesignBench";
-import { CritiqueControls, CritiqueStage } from "./Critique";
-import { DecisionControls, DecisionStage } from "./Decision";
+import { CritiqueControls, CritiqueStage, critiqueMarks } from "./Critique";
+import { DecisionControls, DecisionStage, DecisionThread } from "./Decision";
 import { FeedbackPanel } from "./Feedback";
 import { behavioursFor, initialPreviewState, type PreviewState } from "./ProposalPreview";
 
@@ -26,6 +26,7 @@ const HOW_IT_WORKS = {
   decision: "Work through the scenario. Each decision leads to consequences and a follow-up. You can change an earlier decision before submitting.",
 } as const;
 
+/** "controls" is kept for stored state compatibility; below lg the controls live in a bottom sheet, so it maps to "stage". */
 type Section = "brief" | "controls" | "stage" | "feedback";
 
 export function Workspace({ view, activity, mode, backHref }: { view: PathView; activity: Activity; mode: "learner" | "preview"; backHref: string }) {
@@ -45,8 +46,13 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   const [phase, setPhase] = useState<"working" | "feedback">("working");
   const [result, setResult] = useState<{ attempt?: Attempt; evaluation: Evaluation } | null>(null);
   const [missing, setMissing] = useState<string[] | null>(null);
-  const [section, setSection] = useState<Section>(usableDraft ? "controls" : "brief");
+  const [section, setSection] = useState<Section>(usableDraft ? "stage" : "brief");
   const [helpOpen, setHelpOpen] = useState(false);
+  // Shared between the controls and the live preview so the preview can show what the current question touches.
+  const [benchDim, setBenchDim] = useState<DesignDimension | undefined>();
+  const [pending, setPending] = useState<string | undefined>();
+  const [reviewNode, setReviewNode] = useState<string | undefined>();
+  const [sheetOpen, setSheetOpen] = useState(true);
   const [confirmReveal, setConfirmReveal] = useState(false);
   const [confirmHint, setConfirmHint] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -115,22 +121,19 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
       const fresh = initialPreviewState(raw, behavioursFor(raw, selections));
       updateResponse({ template: "design-bench", selections }, { preview: { ...fresh, sourceOpen: preview?.sourceOpen } });
     };
-    controls = <DesignBenchControls activity={activity} selections={response.selections} onSelect={onSelect} readOnly={readOnly} evaluation={evaluation} />;
-    stage = <DesignBenchStage activity={activity} selections={response.selections} preview={preview!} onPreview={(s) => updateUi({ preview: s })} readOnly={false} />;
+    controls = <DesignBenchControls activity={activity} selections={response.selections} onSelect={onSelect} onStep={setBenchDim} readOnly={readOnly} evaluation={evaluation} />;
+    stage = <DesignBenchStage activity={activity} selections={response.selections} preview={preview!} onPreview={(s) => updateUi({ preview: s })} readOnly={false} activeDimension={phase === "working" ? benchDim : undefined} />;
   } else if (activity.template === "critique" && response.template === "critique") {
     controlsLabel = "Review";
     const selected = (ui.selected as string | undefined) ?? undefined;
-    const onSelect = (id: string) => {
-      updateUi({ selected: id });
-      setSection((s) => (s === "stage" ? "controls" : s));
-    };
+    const onSelect = (id: string) => updateUi({ selected: id || undefined });
     const onReview = (id: string, patch: (typeof response.reviews)[string]) => updateResponse({ template: "critique", reviews: { ...response.reviews, [id]: patch } });
-    controls = <CritiqueControls activity={activity} reviews={response.reviews} selected={selected} onSelect={onSelect} onReview={onReview} readOnly={readOnly} evaluation={evaluation} />;
+    controls = <CritiqueControls activity={activity} reviews={response.reviews} selected={selected} onSelect={onSelect} onReview={onReview} readOnly={readOnly} />;
     stage = <CritiqueStage activity={activity} reviews={response.reviews} selected={selected} onSelect={onSelect} evaluation={evaluation} />;
   } else if (activity.template === "decision" && response.template === "decision") {
     controlsLabel = "Decisions";
-    controls = <DecisionControls activity={activity} choices={response.choices} onChoices={(choices) => updateResponse({ template: "decision", choices })} readOnly={readOnly} />;
-    stage = <DecisionStage activity={activity} choices={response.choices} />;
+    controls = <DecisionControls activity={activity} choices={response.choices} onChoices={(choices) => updateResponse({ template: "decision", choices })} readOnly={readOnly} pending={pending} onPending={setPending} />;
+    stage = <DecisionStage activity={activity} choices={response.choices} pending={phase === "working" ? pending : undefined} reviewNodeId={phase === "feedback" ? reviewNode : undefined} />;
   }
 
   // ---------- Actions ----------
@@ -138,15 +141,29 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
     const c = checkCompleteness(rawActivity, response);
     if (!c.complete) {
       setMissing(c.missing);
-      setSection("controls");
+      setSection("stage");
+      setSheetOpen(true);
       return;
     }
+    let ev: Evaluation;
     if (mode === "learner") {
       const attempt = submit({ bundle: view.rawBundle, version, activity: rawActivity, response, hintsUsed, solutionRevealed });
       playSfx(attempt.evaluation.skills.every((x) => x.met) ? "ship" : "reopen");
       setResult({ attempt, evaluation: attempt.evaluation });
+      ev = attempt.evaluation;
     } else {
-      setResult({ evaluation: evaluate(rawActivity, response, view.rawBundle.skills) });
+      ev = evaluate(rawActivity, response, view.rawBundle.skills);
+      setResult({ evaluation: ev });
+    }
+    // The ship review opens on the first thing worth looking at.
+    if (rawActivity.template === "critique" && response.template === "critique") {
+      const marks = critiqueMarks(rawActivity, response.reviews, ev);
+      const first = rawActivity.hotspots.find((h) => marks[h.id] === "incorrect") ?? rawActivity.hotspots[0];
+      updateUi({ selected: first?.id });
+    } else if (rawActivity.template === "decision" && response.template === "decision") {
+      const walk = walkDecision(rawActivity, { choices: response.choices });
+      const reopened = walk.steps.find((st) => rawActivity.nodes.find((n) => n.id === st.nodeId)?.choices.find((c) => c.id === st.choiceId)?.signals.some((g) => !g.met));
+      setReviewNode((reopened ?? walk.steps[0])?.nodeId);
     }
     setPhase("feedback");
     setSection("feedback");
@@ -157,7 +174,8 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   const retry = () => {
     setPhase("working");
     setResult(null);
-    setSection("controls");
+    setSection("stage");
+    setReviewNode(undefined);
     // A new attempt starts unassisted unless help is used again.
     setHintsShown(0);
     setSolutionRevealed(false);
@@ -190,11 +208,11 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
 
   // ---------- Layout ----------
   const skillIds = skillsAssessedBy(rawActivity, view.rawBundle.skills);
-  const tabs: { id: Section; label: string }[] = [
+  // Below lg the questions live in a bottom sheet, so there is no separate tab for them while working.
+  const tabs: { id: Section; label: string; className?: string }[] = [
     { id: "brief", label: tr("Brief") },
-    { id: "controls", label: tr(controlsLabel) },
-    { id: "stage", label: activity.template === "decision" ? tr("Situation") : tr("Interface") },
-    ...(phase === "feedback" ? [{ id: "feedback" as const, label: tr("Feedback") }] : []),
+    ...(phase === "feedback" ? [{ id: "feedback" as const, label: tr("Ship review") }] : [{ id: "controls" as const, label: tr(controlsLabel), className: "hidden lg:flex" }]),
+    { id: "stage", label: activity.template === "decision" ? tr("Situation") : tr("Live") },
   ];
   const lastAttempt = mode === "learner" ? [...view.pathAttempts].reverse().find((a) => a.activityId === activity.id) : undefined;
 
@@ -210,6 +228,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
         </div>
         <p className="mt-3 rounded-2xl rounded-es-sm bg-overlay p-3 text-sm leading-relaxed text-fg">{activity.scenario}</p>
         <p className="mt-2 ms-auto w-fit rounded-2xl rounded-ee-sm bg-brand px-3 py-2 text-sm font-semibold text-white">{activity.task}</p>
+        {activity.template === "decision" && response.template === "decision" && <DecisionThread activity={activity} choices={response.choices} />}
       </div>
       <details className="group rounded-2xl border border-line bg-surface">
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 font-mono text-xs font-semibold text-accent">
@@ -266,7 +285,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   const work = section !== "brief" ? "lg:block" : "";
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 pb-28 pt-4 sm:px-6 lg:pb-10">
+    <div className={cn("mx-auto max-w-[1440px] px-4 pt-4 sm:px-6 lg:pb-10", phase === "working" ? (sheetOpen ? "pb-[calc(52vh+5rem)]" : "pb-44") : "pb-28")}>
       {/* Header */}
       <div className="flex flex-wrap items-start gap-3">
         <Link href={backHref} className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-muted hover:text-fg" aria-label={tr("Back")}>
@@ -313,35 +332,71 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
           <div className="xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pe-1"><ColumnTag n={1} pulse={phase === "working" && !hintsUsed}>{tr("Read first")}</ColumnTag>{brief}</div>
         </aside>
 
-        <section className={cn(phase === "feedback" ? vis("feedback") : vis("controls"), work, "xl:block")} aria-label={phase === "feedback" ? tr("Feedback") : tr(controlsLabel)}>
-          <ColumnTag n={2}>{phase === "feedback" ? tr("Ship review") : tr(controlsLabel)}</ColumnTag>
-          {phase === "feedback" && result ? (
-            <div ref={feedbackRef}>
-              <FeedbackPanel view={view} activity={activity} attempt={result.attempt} evaluation={result.evaluation} mode={mode} onRetry={retry} />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {missing && (
-                <Notice tone="warn" title={tr(t.practice.incomplete)}>
-                  <ul className="list-disc space-y-0.5 ps-4">
-                    {L(missing).slice(0, 6).map((m, i) => <li key={i}>{m}</li>)}
-                    {missing.length > 6 && <li>{tr("and {n} more", { n: missing.length - 6 })}</li>}
-                  </ul>
-                </Notice>
-              )}
-              {controls}
-            </div>
+        <section
+          className={cn(
+            phase === "feedback"
+              ? cn(vis("feedback"), work, "xl:block")
+              : cn(
+                  // Working: a bottom sheet below lg, a plain column from lg.
+                  "fixed inset-x-0 bottom-[4.5rem] z-30 rounded-t-3xl border-t-[1.5px] border-brand-strong bg-surface px-4 pb-4 pt-2 shadow-[0_-12px_32px_rgba(0,0,0,0.45)]",
+                  "lg:static lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none",
+                  section === "brief" && "lg:hidden",
+                  "xl:block",
+                ),
           )}
+          aria-label={phase === "feedback" ? tr("Feedback") : tr(controlsLabel)}
+        >
+          {phase === "working" && (
+            <button
+              type="button"
+              onClick={() => setSheetOpen((o) => !o)}
+              aria-expanded={sheetOpen}
+              className="mx-auto mb-1 flex w-full flex-col items-center gap-1 py-1 lg:hidden"
+            >
+              <span aria-hidden className="h-1 w-10 rounded-full bg-line-strong" />
+              <span className="flex items-center gap-1 font-mono text-[11px] font-semibold text-accent">
+                {tr(controlsLabel)} <ChevronDown size={12} aria-hidden className={cn("transition-transform", !sheetOpen && "rotate-180")} />
+              </span>
+            </button>
+          )}
+          <div className={cn(phase === "working" && !sheetOpen && "hidden lg:block", phase === "working" && "max-h-[46vh] overflow-y-auto lg:max-h-none lg:overflow-visible")}>
+            <ColumnTag n={2}>{phase === "feedback" ? tr("Ship review") : tr(controlsLabel)}</ColumnTag>
+            {phase === "feedback" && result ? (
+              <div ref={feedbackRef}>
+                <FeedbackPanel
+                  view={view}
+                  activity={activity}
+                  attempt={result.attempt}
+                  evaluation={result.evaluation}
+                  mode={mode}
+                  onRetry={retry}
+                  critique={response.template === "critique" ? { reviews: response.reviews, selected: ui.selected as string | undefined, onSelect: (id) => updateUi({ selected: id || undefined }) } : undefined}
+                  decision={response.template === "decision" ? { choices: response.choices, selectedNodeId: reviewNode, onSelectNode: (id) => setReviewNode(id || undefined) } : undefined}
+                />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {missing && (
+                  <Notice tone="warn" title={tr(t.practice.incomplete)}>
+                    <ul className="list-disc space-y-0.5 ps-4">
+                      {L(missing).slice(0, 6).map((m, i) => <li key={i}>{m}</li>)}
+                      {missing.length > 6 && <li>{tr("and {n} more", { n: missing.length - 6 })}</li>}
+                    </ul>
+                  </Notice>
+                )}
+                {controls}
+              </div>
+            )}
+          </div>
         </section>
 
-        <section className={cn(vis("stage"), work, "xl:block")} aria-label={tr("Interface")}>
+        <section className={cn(section === "brief" ? "hidden xl:block" : phase === "feedback" && section === "feedback" ? "hidden lg:block" : "block")} aria-label={tr("Interface")}>
           <div className="lg:sticky lg:top-20">
             <ColumnTag n={3}>{tr("Live")}</ColumnTag>
             <div className="relative p-3">
               <span key={sig} aria-hidden className="sel-snap pointer-events-none absolute inset-0 z-10 hidden rounded-[22px] outline outline-2 outline-offset-4 outline-brand-strong/70 lg:block" />
               {stage}
             </div>
-            {phase === "feedback" && activity.template === "critique" && <div className="mt-4">{controls}</div>}
           </div>
         </section>
       </div>

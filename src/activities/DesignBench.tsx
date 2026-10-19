@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, ArrowRight, BadgeCheck, Ban, ClipboardCheck, Clock, Eye, FilePen, Files, GitCompare, Hash, History, Info, ListChecks, MessageSquareQuote, MousePointerClick, PenLine,
   Percent, RefreshCw, Rows3, ScanSearch, Settings, ShieldAlert, ShieldCheck, Sparkles, SquareDashed, TextCursorInput, Undo2, Zap, type LucideIcon,
@@ -29,7 +29,7 @@ const DIMENSION: Record<DesignDimension, { label: string; hue: string }> = {
   evidence: { label: "Proof", hue: "#ffc94d" },
   explanation: { label: "Reason", hue: "#ffc94d" },
   correction: { label: "Fix", hue: "#5ee0a8" },
-  recovery: { label: "Undo", hue: "#5ee0a8" },
+  recovery: { label: "Recover", hue: "#5ee0a8" },
   commitment: { label: "Commit", hue: "#ff7d5c" },
   scope: { label: "Scope", hue: "#ff7d5c" },
 };
@@ -40,12 +40,15 @@ export function DesignBenchControls({
   onSelect,
   readOnly,
   evaluation,
+  onStep,
 }: {
   activity: DesignBenchActivity;
   selections: Record<string, string>;
   onSelect: (decisionId: string, optionId: string) => void;
   readOnly?: boolean;
   evaluation?: Evaluation;
+  /** Fired on mount and whenever the visible decision step changes, with that decision's dimension. */
+  onStep?: (dimension: DesignDimension) => void;
 }) {
   const { tr } = useI18n();
   const total = activity.decisions.length;
@@ -56,6 +59,13 @@ export function DesignBenchControls({
   const step = Math.min(total - 1, picked);
   const d = activity.decisions[step];
   const dim = DIMENSION[d.dimension];
+  const onStepRef = useRef(onStep);
+  useEffect(() => {
+    onStepRef.current = onStep;
+  });
+  useEffect(() => {
+    onStepRef.current?.(activity.decisions[step].dimension);
+  }, [activity, step]);
   const go = (i: number) => {
     playSfx("tap");
     setPicked(Math.max(0, Math.min(total - 1, i)));
@@ -179,12 +189,15 @@ export function DesignBenchStage({
   preview,
   onPreview,
   readOnly,
+  activeDimension,
 }: {
   activity: DesignBenchActivity;
   selections: Record<string, string>;
   preview: PreviewState;
   onPreview: (s: PreviewState) => void;
   readOnly?: boolean;
+  /** Highlights the part of the preview the current decision is about. */
+  activeDimension?: DesignDimension;
 }) {
   const { tr } = useI18n();
   return (
@@ -193,7 +206,7 @@ export function DesignBenchStage({
         <h3 className="text-sm font-semibold text-fg">{tr("Interface preview")}</h3>
         <p className="text-xs text-subtle">{tr("Interactive. Try it the way a user would.")}</p>
       </div>
-      <ProposalPreview activity={activity} selections={selections} state={preview} onChange={onPreview} readOnly={readOnly} />
+      <ProposalPreview activity={activity} selections={selections} state={preview} onChange={onPreview} readOnly={readOnly} activeDimension={activeDimension} />
     </div>
   );
 }

@@ -1,93 +1,190 @@
 "use client";
 
-import { ArrowRight, CornerDownRight, Undo2 } from "lucide-react";
-import { useState } from "react";
+import { Check } from "lucide-react";
 import { walkDecision } from "@/domain/assessment";
-import type { DecisionActivity } from "@/domain/types";
-import { Button, cn } from "@/components/ui";
+import type { DecisionActivity, DecisionNode, Screen } from "@/domain/types";
+import { playSfx } from "@/components/sfx";
+import { Button, Kbd, cn } from "@/components/ui";
 import { useI18n } from "@/i18n";
-import { ScreenRenderer } from "./ScreenRenderer";
+import { ScreenRenderer, type HighlightMode } from "./ScreenRenderer";
 
 type Choices = { nodeId: string; choiceId: string }[];
 
-export function DecisionControls({ activity, choices, onChoices, readOnly }: { activity: DecisionActivity; choices: Choices; onChoices: (c: Choices) => void; readOnly?: boolean }) {
+/** Screen blocks whose hotspot starts with this prefix show a consequence (a dialog, a banner, a list) and appear only while highlighted. */
+const EFFECT_PREFIX = "fx-";
+
+/** Fewest decisions left from this node to the end of the scenario, counting the node itself. */
+function decisionsLeft(activity: DecisionActivity, nodeId: string, seen: string[] = []): number {
+  const node = activity.nodes.find((n) => n.id === nodeId);
+  if (!node || seen.includes(nodeId)) return 1;
+  const nexts = node.choices.map((c) => c.next);
+  if (nexts.some((n) => !n)) return 1;
+  return 1 + Math.min(...nexts.map((n) => decisionsLeft(activity, n!, [...seen, nodeId])));
+}
+
+/** The node whose screen to show: the node's own, else the nearest earlier walked node with one, else the first one that has one. */
+function screenNodeFor(activity: DecisionActivity, nodeId: string, walkedIds: string[]): DecisionNode | undefined {
+  const node = activity.nodes.find((n) => n.id === nodeId);
+  if (node?.screen) return node;
+  const upTo = walkedIds.includes(nodeId) ? walkedIds.slice(0, walkedIds.indexOf(nodeId)) : walkedIds;
+  const earlier = [...upTo].reverse().map((id) => activity.nodes.find((n) => n.id === id)).find((n) => n?.screen);
+  return earlier ?? activity.nodes.find((n) => n.screen);
+}
+
+function RouteStepper({ activity, choices, onChoices, onPending, readOnly }: { activity: DecisionActivity; choices: Choices; onChoices: (c: Choices) => void; onPending?: (id: string | undefined) => void; readOnly?: boolean }) {
+  const { tr } = useI18n();
+  const walk = walkDecision(activity, { choices });
+  const titleOf = (id: string) => activity.nodes.find((n) => n.id === id)?.title ?? "";
+  const left = walk.currentNodeId ? decisionsLeft(activity, walk.currentNodeId) : 0;
+  const items = [
+    ...walk.steps.map((s, i) => ({ state: "done" as const, n: i + 1, title: titleOf(s.nodeId) })),
+    ...(walk.currentNodeId ? [{ state: "current" as const, n: walk.steps.length + 1, title: titleOf(walk.currentNodeId) }] : []),
+    ...Array.from({ length: Math.max(0, left - 1) }, (_, k) => ({ state: "todo" as const, n: walk.steps.length + 2 + k, title: "" })),
+  ];
+  return (
+    <ol aria-label={tr("Route")} className="flex items-center rounded-2xl border border-line bg-surface px-3.5 py-3">
+      {items.map((it, i) => {
+        const dotClass = cn(
+          "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-[1.5px] font-mono text-[11px] font-semibold",
+          it.state === "current" && "border-brand-strong bg-brand-strong text-white ring-4 ring-brand-strong/25",
+          it.state === "done" && "border-ok bg-ok-bg text-ok",
+          it.state === "todo" && "border-line-strong text-subtle",
+        );
+        const dot = it.state === "done" ? <Check size={13} strokeWidth={2.6} aria-hidden /> : it.n;
+        const label = tr("Decision {n} · {title}", { n: it.n, title: it.title });
+        return (
+          <li key={i} className={cn("flex min-w-0 items-center", it.state === "todo" ? "flex-none" : "flex-1")} aria-current={it.state === "current" ? "step" : undefined}>
+            {it.state === "done" && !readOnly ? (
+              <button
+                type="button"
+                aria-label={`${label} · ${tr("Change")}`}
+                title={tr("Change")}
+                onClick={() => {
+                  playSfx("undo");
+                  onChoices(choices.slice(0, i));
+                  onPending?.(undefined);
+                }}
+                className={cn(dotClass, "hover:bg-ok/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent")}
+              >
+                {dot}
+              </button>
+            ) : (
+              <span className={dotClass} role="img" aria-label={it.state === "todo" ? tr("Decision {n}", { n: it.n }) : label}>
+                {dot}
+              </span>
+            )}
+            {it.state !== "todo" && (
+              <span className={cn("mx-1.5 min-w-0 truncate font-mono text-[11.5px] font-semibold", it.state === "current" ? "text-fg" : "text-muted")} aria-hidden>
+                {it.title}
+              </span>
+            )}
+            {i < items.length - 1 && <span aria-hidden className={cn("mx-1 h-0.5 min-w-2 flex-1 rounded-full", it.state === "done" ? "bg-ok" : "bg-line")} />}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+export function DecisionControls({
+  activity,
+  choices,
+  onChoices,
+  readOnly,
+  pending,
+  onPending,
+}: {
+  activity: DecisionActivity;
+  choices: Choices;
+  onChoices: (c: Choices) => void;
+  readOnly?: boolean;
+  /** The option being considered at the current node (owned by the parent so the preview can highlight what it touches). */
+  pending?: string;
+  onPending?: (optionId: string | undefined) => void;
+}) {
   const { tr } = useI18n();
   const walk = walkDecision(activity, { choices });
   const node = activity.nodes.find((n) => n.id === walk.currentNodeId);
-  const [pending, setPending] = useState<string | undefined>();
+  const route = <RouteStepper activity={activity} choices={choices} onChoices={onChoices} onPending={onPending} readOnly={readOnly} />;
+  if (readOnly) return route;
+
   const stepNo = walk.steps.length + 1;
+  const total = walk.steps.length + (walk.currentNodeId ? decisionsLeft(activity, walk.currentNodeId) : 0);
+  const picked = node?.choices.find((c) => c.id === pending)?.id;
+  const pick = (id: string) => {
+    playSfx("pick");
+    onPending?.(id);
+  };
+  const decide = () => {
+    if (!node || !picked) return;
+    playSfx("apply");
+    onChoices([...choices, { nodeId: node.id, choiceId: picked }]);
+    onPending?.(undefined);
+  };
 
   return (
-    <div className="space-y-5">
-      {walk.steps.length > 0 && (
-        <ol className="space-y-3" aria-label={tr("Decisions so far")}>
-          {walk.steps.map((s, i) => {
-            const n = activity.nodes.find((x) => x.id === s.nodeId)!;
-            const c = n.choices.find((x) => x.id === s.choiceId)!;
-            return (
-              <li key={i} className="rounded-lg border border-line bg-surface p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{tr("Decision {n} · {title}", { n: i + 1, title: n.title })}</p>
-                  {!readOnly && (
-                    <button type="button" onClick={() => onChoices(choices.slice(0, i))} className="inline-flex shrink-0 items-center gap-1 text-xs text-muted hover:text-fg">
-                      <Undo2 size={12} aria-hidden /> {tr("Change")}
-                    </button>
-                  )}
-                </div>
-                <p className="mt-1 text-sm font-medium text-fg">{c.label}</p>
-                <p className="mt-1 flex gap-1.5 text-sm text-muted">
-                  <CornerDownRight size={14} className="mt-0.5 shrink-0" aria-hidden />
-                  {c.consequence}
-                </p>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-
-      {node && !readOnly ? (
-        <fieldset className="space-y-3 animate-rise" key={node.id}>
+    <div className="space-y-3.5">
+      {route}
+      {node ? (
+        <fieldset
+          key={node.id}
+          className="animate-rise space-y-4 rounded-[22px] border-[1.5px] border-brand-strong bg-surface p-4 sm:p-5"
+          onKeyDown={(e) => {
+            if (!(e.target as HTMLElement).matches("input[type=radio]")) return;
+            if (e.key === "Enter") {
+              if (picked) {
+                e.preventDefault();
+                decide();
+              }
+              return;
+            }
+            const n = Number(e.key);
+            if (!(n >= 1 && n <= node.choices.length)) return;
+            e.preventDefault();
+            pick(node.choices[n - 1].id);
+          }}
+        >
           <legend className="sr-only">{node.prompt}</legend>
-          <p className="font-mono text-xs font-semibold text-accent">{tr("Decision {n} · {title}", { n: stepNo, title: node.title })}</p>
-          <p className="text-sm leading-relaxed text-fg">{node.situation}</p>
+          <div>
+            <p className="font-mono text-xs font-semibold text-accent">{tr("Decision {n} of {m} · {title}", { n: stepNo, m: total, title: node.title })}</p>
+            <p className="mt-1.5 font-display text-2xl font-extrabold leading-[1.1] tracking-tight text-fg" aria-hidden>
+              {node.prompt}
+            </p>
+          </div>
           {node.facts && (
-            <dl className="grid grid-cols-2 gap-2">
+            <dl className="flex flex-wrap gap-2">
               {node.facts.map((f) => (
-                <div key={f.label} className="rounded-lg border border-line bg-surface px-3 py-2">
-                  <dt className="text-xs text-subtle">{f.label}</dt>
-                  <dd className="text-sm font-medium text-fg">{f.value}</dd>
+                <div key={f.label} className="rounded-xl border border-line bg-raised px-2.5 py-1.5">
+                  <dt className="font-mono text-[10.5px] text-muted">{f.label}</dt>
+                  <dd className="text-[13.5px] font-semibold text-fg">{f.value}</dd>
                 </div>
               ))}
             </dl>
           )}
-          <p className="font-display text-2xl font-extrabold leading-tight tracking-tight text-fg" aria-hidden>{node.prompt}</p>
-          <div className="space-y-2">
-            {node.choices.map((c) => (
-              <label
-                key={c.id}
-                className={cn(
-                  "flex cursor-pointer gap-3 rounded-2xl border-[1.5px] p-3.5 transition-[transform,border-color] hover:-translate-y-0.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent",
-                  pending === c.id ? "border-brand-strong bg-brand-deep" : "border-line bg-surface hover:border-line-strong",
-                )}
-              >
-                <input type="radio" name={`${activity.id}-${node.id}`} checked={pending === c.id} onChange={() => setPending(c.id)} className="mt-1 h-4 w-4 shrink-0 accent-[#7b6cff]" />
-                <span>
-                  <span className="block text-sm font-medium text-fg">{c.label}</span>
-                  <span className="text-xs text-muted">{c.detail}</span>
-                </span>
-              </label>
-            ))}
+          <div className="space-y-2.5">
+            {node.choices.map((c, i) => {
+              const checked = picked === c.id;
+              return (
+                <label
+                  key={c.id}
+                  className={cn(
+                    "flex cursor-pointer flex-col gap-2 rounded-2xl border-[1.5px] p-3.5 transition-[transform,border-color,background-color] hover:-translate-y-0.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent",
+                    checked ? "border-brand-strong bg-brand-deep" : "border-line bg-raised hover:border-line-strong",
+                  )}
+                >
+                  <input type="radio" className="sr-only" name={`${activity.id}-${node.id}`} value={c.id} checked={checked} onChange={() => pick(c.id)} />
+                  <span className="flex items-start justify-between gap-2.5">
+                    <span className="text-start text-[14.5px] font-semibold leading-snug text-fg">{c.label}</span>
+                    <Kbd className={cn("hidden shrink-0 sm:inline", checked && "border-white/40 text-white")}>{i + 1}</Kbd>
+                  </span>
+                  <span className={cn("font-mono text-[11.5px]", checked ? "text-accent-strong" : "text-muted")}>{c.detail}</span>
+                </label>
+              );
+            })}
           </div>
-          <Button
-            variant="primary"
-            disabled={!pending}
-            onClick={() => {
-              if (!pending) return;
-              onChoices([...choices, { nodeId: node.id, choiceId: pending }]);
-              setPending(undefined);
-            }}
-          >
-            {tr("Decide")} <ArrowRight size={15} aria-hidden />
+          <Button variant="primary" size="lg" className="w-full" disabled={!picked} onClick={decide}>
+            {tr("Decide")}
+            <span aria-hidden className="rounded-md bg-black/20 px-1.5 font-mono text-xs font-semibold">↵</span>
           </Button>
         </fieldset>
       ) : walk.finished ? (
@@ -97,36 +194,79 @@ export function DecisionControls({ activity, choices, onChoices, readOnly }: { a
   );
 }
 
-export function DecisionStage({ activity, choices }: { activity: DecisionActivity; choices: Choices }) {
+/** Chat thread for the Brief column: the situation, the learner's pick and its consequence for every step, then the current situation. */
+export function DecisionThread({ activity, choices }: { activity: DecisionActivity; choices: Choices }) {
   const { tr } = useI18n();
   const walk = walkDecision(activity, { choices });
-  const currentId = walk.currentNodeId ?? walk.steps[walk.steps.length - 1]?.nodeId ?? activity.start;
-  const withScreen = [...activity.nodes].filter((n) => n.screen);
-  const node = activity.nodes.find((n) => n.id === currentId);
-  const screenNode = node?.screen ? node : withScreen.find((n) => walk.steps.some((s) => s.nodeId === n.id)) ?? withScreen[0];
-  const last = walk.steps[walk.steps.length - 1];
+  const nodeOf = (id: string) => activity.nodes.find((n) => n.id === id);
+  const bubble = "max-w-[92%] rounded-2xl px-3 py-2.5 leading-snug";
+  const items: { key: string; tag?: string; side?: "l" | "r" | "c"; text?: string }[] = [];
+  const addNode = (node: DecisionNode, k: number) => {
+    if (k > 0) items.push({ key: `tag-${k}`, tag: tr("Decision {n} · {title}", { n: k + 1, title: node.title }) });
+    items.push({ key: `sit-${k}`, side: "l", text: node.situation });
+  };
+  walk.steps.forEach((s, k) => {
+    const node = nodeOf(s.nodeId);
+    const choice = node?.choices.find((c) => c.id === s.choiceId);
+    if (!node || !choice) return;
+    addNode(node, k);
+    items.push({ key: `pick-${k}`, side: "r", text: choice.label });
+    items.push({ key: `fx-${k}`, side: "c", text: `↳ ${choice.consequence}` });
+  });
+  const current = walk.currentNodeId ? nodeOf(walk.currentNodeId) : undefined;
+  if (current) addNode(current, walk.steps.length);
+
+  return (
+    <ol className="flex flex-col gap-2.5" aria-live="polite" aria-label={tr("Decisions so far")}>
+      {items.map((it) => (
+        <li key={it.key} className={cn("animate-rise flex", it.side === "r" && "justify-end")}>
+          {it.tag !== undefined ? (
+            <span className="pt-1.5 font-mono text-[11px] font-semibold text-accent">{it.tag}</span>
+          ) : it.side === "l" ? (
+            <p className={cn(bubble, "rounded-es-sm bg-overlay text-sm text-fg")}>{it.text}</p>
+          ) : it.side === "r" ? (
+            <p className={cn(bubble, "rounded-ee-sm bg-brand text-sm font-semibold text-white")}>{it.text}</p>
+          ) : (
+            <p className={cn(bubble, "rounded-xl border border-line bg-raised py-2 text-[13px] text-muted")}>{it.text}</p>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** The product screen of a node with the parts touched by `choiceId` highlighted. Effect blocks (hotspot "fx-…") show only while highlighted. */
+function HighlightedScreen({ node, choiceId, own, className }: { node: DecisionNode; choiceId?: string; own: boolean; className?: string }) {
+  const screen = node.screen as Screen;
+  const choice = node.choices.find((c) => c.id === choiceId);
+  const active: Record<string, string> = Object.fromEntries((choice?.affects ?? []).map((a) => [a.hotspot, a.tag]));
+  const related = own ? [...new Set(node.choices.flatMap((c) => (c.affects ?? []).map((a) => a.hotspot)))] : [];
+  const highlight: HighlightMode = { active, related };
+  const shown: Screen = { ...screen, blocks: screen.blocks.filter((b) => !b.hotspot?.startsWith(EFFECT_PREFIX) || b.hotspot in active) };
+  return <ScreenRenderer screen={shown} highlight={highlight} className={className} />;
+}
+
+export function DecisionStage({ activity, choices, pending, reviewNodeId }: { activity: DecisionActivity; choices: Choices; pending?: string; reviewNodeId?: string }) {
+  const { tr } = useI18n();
+  const walk = walkDecision(activity, { choices });
+  const walkedIds = walk.steps.map((s) => s.nodeId);
+  const review = reviewNodeId && walkedIds.includes(reviewNodeId);
+  // The node being looked at: the one under review, else the current one, else (finished) the last one decided.
+  const nodeId = review ? reviewNodeId : walk.currentNodeId ?? walkedIds[walkedIds.length - 1] ?? activity.start;
+  const screenNode = screenNodeFor(activity, nodeId, walkedIds);
+  const own = screenNode?.id === nodeId;
+  const decided = walk.steps.find((s) => s.nodeId === nodeId)?.choiceId;
+  const choiceId = review || !walk.currentNodeId ? decided : pending;
+  const considering = !review && !!walk.currentNodeId && screenNode?.choices.some((c) => c.affects?.length);
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-fg">{tr("Situation")}</h3>
-      {screenNode?.screen && <ScreenRenderer screen={screenNode.screen} />}
-      {last && (
-        <div className="rounded-xl border border-line bg-surface p-4" aria-live="polite">
-          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{tr("Latest consequence")}</p>
-          <p className="mt-1 text-sm text-fg">{last.consequence}</p>
-        </div>
-      )}
-      <div className="rounded-xl border border-line bg-surface p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{tr("Route")}</p>
-        <ol className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-          {walk.steps.map((s, i) => (
-            <li key={i} className="flex items-center gap-1.5">
-              <span className="rounded-full bg-raised px-2 py-0.5 text-fg">{activity.nodes.find((n) => n.id === s.nodeId)?.title}</span>
-              <ArrowRight size={11} className="text-subtle" aria-hidden />
-            </li>
-          ))}
-          <li className="rounded-full border border-dashed border-line-strong px-2 py-0.5 text-subtle">{walk.finished ? tr("End") : activity.nodes.find((n) => n.id === walk.currentNodeId)?.title}</li>
-        </ol>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-fg">{tr("Situation")}</h3>
+        {own && screenNode?.choices.some((c) => c.affects?.length) && (
+          <p className="font-mono text-xs text-subtle">{considering ? tr("Pick an option to see what it touches.") : tr("What your choice touched")}</p>
+        )}
       </div>
+      {screenNode?.screen && <HighlightedScreen node={screenNode} choiceId={own ? choiceId : undefined} own={own} />}
     </div>
   );
 }

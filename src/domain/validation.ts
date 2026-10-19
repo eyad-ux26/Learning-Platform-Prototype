@@ -3,7 +3,7 @@
  * Structural checks first, then references, then skill coverage.
  */
 import { skillsAssessedBy } from "./assessment";
-import { CONTENT_FORMAT_VERSION, type Activity, type PathBundle } from "./types";
+import { CONTENT_FORMAT_VERSION, type Activity, type Block, type PathBundle } from "./types";
 
 export interface Issue {
   level: "error" | "warning";
@@ -126,6 +126,19 @@ export function validateReferences(bundle: PathBundle): Issue[] {
   return issues;
 }
 
+/** Every hotspot id used by a screen's blocks, including list items, table rows and nested blocks. */
+function screenHotspotIds(blocks: Block[]): Set<string> {
+  const ids = new Set<string>();
+  const visit = (b: Block) => {
+    if (b.hotspot) ids.add(b.hotspot);
+    if (b.type === "list") b.items.forEach((i) => i.hotspot && ids.add(i.hotspot));
+    if (b.type === "table") b.rowHotspots?.forEach((h) => h && ids.add(h));
+    if (b.type === "dialog" || b.type === "group") b.blocks.forEach(visit);
+  };
+  blocks.forEach(visit);
+  return ids;
+}
+
 function templateReferences(a: Activity, p: string): Issue[] {
   const issues: Issue[] = [];
   const err = (path: string, message: string) => issues.push({ level: "error", path, message });
@@ -162,6 +175,8 @@ function templateReferences(a: Activity, p: string): Issue[] {
       n.choices.forEach((c) => {
         if (c.next && !nodeIds.has(c.next)) err(`${p}.nodes[${j}]`, `Choice “${c.id}” points to missing node “${c.next}”.`);
         c.signals.forEach((s) => !a.criteria.includes(s.criterionId) && err(`${p}.nodes[${j}]`, `Signal criterion “${s.criterionId}” is not listed in the activity criteria.`));
+        const spots = screenHotspotIds(n.screen?.blocks ?? []);
+        c.affects?.forEach((x) => !spots.has(x.hotspot) && err(`${p}.nodes[${j}]`, `Choice “${c.id}” highlights hotspot “${x.hotspot}”, which is not on the screen of node “${n.id}”.`));
       }),
     );
     if (a.nodes.length < 2) issues.push({ level: "warning", path: p, message: "A Decision Scenario should include at least one follow-up decision." });

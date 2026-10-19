@@ -10,6 +10,7 @@ import f3 from "./content-flagship-3";
 import f4 from "./content-flagship-4";
 import f5 from "./content-flagship-5";
 import words from "./words";
+import review from "./ui-review";
 import library from "./content-library";
 
-registerArabic(words, f1, f2, f3, f4, f5, library, domain, preview, activities, learner, shell);
+registerArabic(review, words, f1, f2, f3, f4, f5, library, domain, preview, activities, learner, shell);

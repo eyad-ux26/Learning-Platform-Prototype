@@ -47,7 +47,7 @@ export type Block =
   | { type: "list"; items: { primary: string; secondary?: string; meta?: string; tone?: BlockTone; hotspot?: string }[]; hotspot?: string }
   | { type: "buttons"; buttons: { label: string; variant: "primary" | "secondary" | "ghost" | "danger" }[]; hotspot?: string }
   | { type: "banner"; tone: BlockTone; text: string; hotspot?: string }
-  | { type: "table"; columns: string[]; rows: string[][]; hotspot?: string }
+  | { type: "table"; columns: string[]; rows: string[][]; hotspot?: string; /** Optional hotspot id per row, aligned with `rows`, so single rows can be highlighted. */ rowHotspots?: (string | undefined)[] }
   | { type: "meter"; label: string; value: number; hotspot?: string }
   | { type: "checkbox"; label: string; checked: boolean; hotspot?: string }
   | { type: "link"; text: string; hotspot?: string }
@@ -226,6 +226,11 @@ export interface DecisionChoice {
   consequence: string;
   /** Per-criterion signal produced by choosing this option. */
   signals: { criterionId: CriterionId; met: boolean; because: string }[];
+  /**
+   * Parts of the node's screen this choice touches. While the learner considers the option, these hotspots are
+   * highlighted in the preview with the given tag ("12 client dates"). Hotspot ids refer to blocks of `node.screen`.
+   */
+  affects?: { hotspot: string; tag: string }[];
   next?: string;
 }
 

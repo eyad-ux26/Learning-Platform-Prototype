@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, CheckCircle2, CircleAlert, Copy, Eye, Lock, RotateCcw } from "lucide-react";
 import { recommendNext } from "@/domain/recommend";
-import type { Activity, Attempt, Evaluation } from "@/domain/types";
+import type { Activity, Attempt, Evaluation, Verdict } from "@/domain/types";
+import { walkDecision } from "@/domain/assessment";
+import { CritiqueReview } from "./CritiqueReview";
+import { DecisionReview } from "./DecisionReview";
 import { SkillStatusBadge } from "@/components/SkillStatus";
 import { SkillRing } from "@/components/SkillRing";
 import { Badge, Button, LinkButton, Notice, cn } from "@/components/ui";
@@ -17,6 +20,8 @@ export function FeedbackPanel({
   evaluation: storedEvaluation,
   mode,
   onRetry,
+  critique,
+  decision,
 }: {
   view: PathView;
   activity: Activity;
@@ -24,6 +29,10 @@ export function FeedbackPanel({
   evaluation: Evaluation;
   mode: "learner" | "preview";
   onRetry: () => void;
+  /** Critique ship review: the learner's reviews and the element open in the review (shared with the live preview). */
+  critique?: { reviews: Record<string, { verdict?: Verdict; reason?: string; note?: string }>; selected?: string; onSelect: (id: string) => void };
+  /** Decision ship review: the learner's route and the decision open in the review (shared with the live preview). */
+  decision?: { choices: { nodeId: string; choiceId: string }[]; selectedNodeId?: string; onSelectNode: (id: string) => void };
 }) {
   const { tr, L } = useI18n();
   const { bundle } = view;
@@ -42,12 +51,30 @@ export function FeedbackPanel({
   const conceptFor = (skillId: string) => bundle.explore.find((c) => c.skillId === skillId);
   const unmetSkills = evaluation.skills.filter((s) => !s.met).map((s) => s.skillId);
   const allMet = evaluation.skills.every((s) => s.met);
+  // Headline numbers for the review hero, per activity type.
+  const stat = (() => {
+    if (activity.template === "critique" && critique) {
+      const right = activity.hotspots.filter((h) => {
+        const r = critique.reviews[h.id];
+        return r?.verdict === h.verdict && !!r.reason && h.correctReasons.includes(r.reason);
+      }).length;
+      return { label: tr("JUDGED RIGHT"), value: right, max: activity.hotspots.length, note: tr("Verdict and reason") };
+    }
+    if (activity.template === "decision" && decision) {
+      const steps = walkDecision(activity, { choices: decision.choices }).steps;
+      const held = steps.filter((st) => activity.nodes.find((n) => n.id === st.nodeId)?.choices.find((c) => c.id === st.choiceId)?.signals.every((g) => g.met)).length;
+      return { label: tr("HELD UP"), value: held, max: steps.length, note: tr("Every criterion met") };
+    }
+    return { label: tr("CRITERIA MET"), value: met.length, max: evaluation.criteria.length, note: tr("Across the assessed skills") };
+  })();
+  const pathStat = mode === "learner" && bundle.meta.availability === "full" ? { value: view.completion.mastered.length, max: bundle.requiredSkillIds.length } : undefined;
   /** Authored criterion feedback only. No generated or invented client dialogue. */
   const reviewNote = (unmet[0] ?? met[0])?.feedback;
 
   return (
     <div className="space-y-6 animate-rise" aria-labelledby="feedback-heading">
-      <div className="rounded-[22px] bg-brand p-5 text-white">
+      <div className="flex flex-wrap items-center gap-6 rounded-[22px] bg-brand p-5 text-white">
+        <div className="min-w-0 flex-1 basis-72">
         <span className={cn("animate-stamp inline-flex items-center gap-2 rounded-lg border-[2.5px] border-white px-3 py-1 font-mono text-sm font-semibold tracking-[0.12em]")}>
           {allMet ? <CheckCircle2 size={16} aria-hidden /> : <RotateCcw size={16} aria-hidden />}
           {allMet ? tr("SHIPPED") : tr("REOPENED")}
@@ -67,6 +94,21 @@ export function FeedbackPanel({
             </div>
           </div>
         )}
+        </div>
+        <div className="flex gap-3">
+          <div className="w-36 rounded-[22px] bg-white p-4 text-[#17152e]">
+            <p className="font-mono text-[11px] font-semibold text-[#5a5680]">{stat.label}</p>
+            <p className="mt-1 font-display text-4xl font-extrabold">{stat.value}<span className="text-[#9a96b8]">/{stat.max}</span></p>
+            <p className="text-xs text-[#5a5680]">{stat.note}</p>
+          </div>
+          {pathStat && (
+            <div className="w-36 rounded-[22px] bg-white p-4 text-[#17152e]">
+              <p className="font-mono text-[11px] font-semibold text-[#5a5680]">{tr("SKILLS MASTERED")}</p>
+              <p className="mt-1 font-display text-4xl font-extrabold">{pathStat.value}<span className="text-[#9a96b8]">/{pathStat.max}</span></p>
+              <p className="text-xs text-[#5a5680]">{tr("Path completes at {n}/{n}", { n: pathStat.max })}</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {mode === "preview" && <Notice tone="accent" title={tr("Preview mode")}>{tr("This evaluation uses the real assessment rules, but no evidence is recorded.")}</Notice>}
@@ -113,6 +155,19 @@ export function FeedbackPanel({
         })}
       </section>
 
+      {critique && activity.template === "critique" && (
+        <section aria-labelledby="fb-elements" className="space-y-3">
+          <h3 id="fb-elements" className="font-mono text-xs font-semibold text-accent">{tr("Element by element · tap to open")}</h3>
+          <CritiqueReview activity={activity} reviews={critique.reviews} evaluation={evaluation} selected={critique.selected} onSelect={critique.onSelect} />
+        </section>
+      )}
+      {decision && activity.template === "decision" && (
+        <section aria-labelledby="fb-route" className="space-y-3">
+          <h3 id="fb-route" className="font-mono text-xs font-semibold text-accent">{tr("Your route · tap a decision")}</h3>
+          <DecisionReview activity={activity} choices={decision.choices} evaluation={evaluation} selectedNodeId={decision.selectedNodeId} onSelectNode={decision.onSelectNode} />
+        </section>
+      )}
+
       {met.length > 0 && (
         <section aria-labelledby="fb-worked" className="space-y-3">
           <h3 id="fb-worked" className="font-mono text-xs font-semibold text-ok">{tr("What worked")}</h3>
@@ -131,7 +186,6 @@ export function FeedbackPanel({
         </section>
       )}
 
-      {evaluation.detail?.kind === "critique" && activity.template === "critique" && <CritiqueSummary activity={activity} detail={evaluation.detail} />}
       {activity.template === "decision" && (
         <section aria-labelledby="fb-debrief" className="space-y-2 rounded-xl border border-line bg-surface p-4">
           <h3 id="fb-debrief" className="text-sm font-semibold text-fg">{tr("How impact, reversibility and uncertainty shape the right interaction")}</h3>
@@ -245,36 +299,5 @@ function CriterionCard({ title, skill, result, tone, defaultOpen }: { title: str
         )}
       </div>
     </details>
-  );
-}
-
-function CritiqueSummary({ activity, detail }: { activity: Extract<Activity, { template: "critique" }>; detail: NonNullable<Evaluation["detail"]> & { kind: "critique" } }) {
-  const { tr } = useI18n();
-  const h = (id: string) => activity.hotspots.find((x) => x.id === id)!;
-  const groups: { title: string; ids: string[]; tone: string }[] = [
-    { title: tr("Issues correctly identified"), ids: detail.correctlyIdentified, tone: "text-ok" },
-    { title: tr("Acceptable elements correctly recognised"), ids: detail.correctlyAccepted, tone: "text-ok" },
-    { title: tr("Issues missed"), ids: detail.missed, tone: "text-bad" },
-    { title: tr("Acceptable elements incorrectly flagged"), ids: detail.wronglyFlagged, tone: "text-bad" },
-    { title: tr("Right judgement, different reason expected"), ids: detail.wrongReason, tone: "text-warn" },
-  ];
-  return (
-    <section aria-labelledby="fb-critique" className="space-y-3">
-      <h3 id="fb-critique" className="text-sm font-semibold uppercase tracking-wide text-subtle">{tr("Element by element")}</h3>
-      {groups.filter((g) => g.ids.length).map((g) => (
-        <div key={g.title} className="rounded-xl border border-line bg-surface p-4">
-          <p className={cn("text-sm font-semibold", g.tone)}>{g.title} ({g.ids.length})</p>
-          <ul className="mt-2 space-y-3">
-            {g.ids.map((id) => (
-              <li key={id} className="text-sm">
-                <p className="font-medium text-fg">{h(id).label}</p>
-                <p className="text-muted">{h(id).explanation}</p>
-                <p className="mt-0.5 text-muted"><span className="text-fg">{tr("Improvement: ")}</span>{h(id).improvement}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </section>
   );
 }

@@ -195,7 +195,7 @@ export function Dialog({
 
 // ---------- Tabs (accessible, manual activation) ----------
 
-export function Tabs<T extends string>({ tabs, value, onChange, label, className, numbered }: { numbered?: boolean; tabs: { id: T; label: ReactNode; count?: number }[]; value: T; onChange: (v: T) => void; label: string; className?: string }) {
+export function Tabs<T extends string>({ tabs, value, onChange, label, className, numbered }: { numbered?: boolean; tabs: { id: T; label: ReactNode; count?: number; className?: string }[]; value: T; onChange: (v: T) => void; label: string; className?: string }) {
   const base = useId();
   return (
     <div role="tablist" aria-label={label} className={cn("flex gap-1 overflow-x-auto rounded-xl border border-line bg-surface p-1", className)}>
@@ -217,6 +217,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, className
           }}
           className={cn(
             "flex min-h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors",
+            tab.className,
             value === tab.id ? "bg-brand-deep text-white" : "text-muted hover:text-fg",
           )}
         >
