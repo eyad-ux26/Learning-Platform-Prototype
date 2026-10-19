@@ -3,7 +3,7 @@
 import { Check, Info, AlertTriangle, Sparkles, X } from "lucide-react";
 import type { Block, BlockTone, Screen } from "@/domain/types";
 import { cn } from "@/components/ui";
-import { useI18n } from "@/i18n";
+import { useProductI18n as useI18n } from "@/i18n";
 
 export type HotspotMark = "unreviewed" | "acceptable" | "problematic" | "correct" | "incorrect";
 

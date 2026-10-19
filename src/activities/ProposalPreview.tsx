@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { History, Info, MessageSquareText, RotateCcw, Settings, Sparkles, Undo2, X, FileText, CheckCircle2, Clock } from "lucide-react";
 import type { Behaviour, DesignBenchActivity, DesignDimension } from "@/domain/types";
 import { cn } from "@/components/ui";
-import { useI18n } from "@/i18n";
+import { useProductI18n as useI18n } from "@/i18n";
 
 export interface PreviewState {
   status: "proposed" | "applied" | "reverted";

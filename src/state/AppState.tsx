@@ -142,6 +142,28 @@ export interface PathView {
   pathAttempts: Attempt[];
 }
 
+/** Product screens stay in standard Arabic when the interface uses the Egyptian variant. */
+function withStandardProductScreens(localized: PathBundle, raw: PathBundle): PathBundle {
+  const std = <T,>(v: T) => localizeDeep(v, "ar");
+  return {
+    ...localized,
+    activities: localized.activities.map((a, i) => {
+      const r = raw.activities[i];
+      if (a.template === "design-bench" && r.template === "design-bench") return { ...a, preview: std(r.preview) };
+      if (a.template === "critique" && r.template === "critique") return { ...a, screen: std(r.screen) };
+      if (a.template === "decision" && r.template === "decision") return { ...a, nodes: a.nodes.map((n, j) => (r.nodes[j].screen ? { ...n, screen: std(r.nodes[j].screen) } : n)) };
+      return a;
+    }),
+    explore: localized.explore.map((c, i) => ({
+      ...c,
+      comparisons: c.comparisons.map((cmp, j) => {
+        const r = raw.explore[i].comparisons[j];
+        return { ...cmp, before: { ...cmp.before, screen: std(r.before.screen) }, after: { ...cmp.after, screen: std(r.after.screen) } };
+      }),
+    })),
+  };
+}
+
 export function getPathView(state: PrototypeState, learner: LearnerRecord, pathId: string, override?: { bundle: PathBundle; version: number }, localize = false): PathView | undefined {
   const entry = state.catalog.entries[pathId];
   if (!entry) return undefined;
@@ -157,13 +179,14 @@ export function getPathView(state: PrototypeState, learner: LearnerRecord, pathI
   for (const s of bundle.skills) progress[s.id] = deriveSkillProgress(s.id, pathEvidence);
   const locale: Locale = localize ? asLocale(learner.preferences.language) : "en";
   const L = <T,>(v: T) => localizeDeep(v, locale);
+  const shown = locale === "ar-EG" ? withStandardProductScreens(L(bundle), bundle) : L(bundle);
   const completion = derivePathCompletion(bundle, pathEvidence);
   const localProgress: Record<string, SkillProgress> = {};
   for (const [id, p] of Object.entries(progress)) localProgress[id] = L(p);
   return {
     entry,
-    version: locale === "en" ? version : { ...version, bundle: L(bundle) },
-    bundle: L(bundle),
+    version: locale === "en" ? version : { ...version, bundle: shown },
+    bundle: shown,
     rawBundle: bundle,
     latestVersion: entry.versions[entry.versions.length - 1]?.version ?? 0,
     enrolledVersion: enrollment?.contentVersion,

@@ -11,6 +11,22 @@ export function useLocale(): Locale {
   return asLocale(learner?.preferences.language);
 }
 
+/**
+ * The simulated product screens (the thing the learner evaluates or designs) always use standard Arabic,
+ * even when the Egyptian variant is selected for the surrounding interface.
+ */
+export function useProductI18n() {
+  const i = useI18n();
+  const locale: Locale = i.locale === "ar-EG" ? "ar" : i.locale;
+  const tr = useCallback((key: string, params?: Record<string, string | number>) => translate(locale, key, params), [locale]);
+  const L = useCallback(<T,>(value: T): T => localizeDeep(value, locale), [locale]);
+  const date = useCallback(
+    (iso: string, opts?: Intl.DateTimeFormatOptions) => new Date(iso).toLocaleDateString(dateLocale(locale), opts ?? { day: "numeric", month: "long", year: "numeric" }),
+    [locale],
+  );
+  return useMemo(() => ({ ...i, locale, dir: dirOf(locale), tr, L, date }), [i, locale, tr, L, date]);
+}
+
 /** `tr` for interface text, `L` for authored content and domain messages, `date` for locale-aware dates. */
 export function useI18n() {
   const locale = useLocale();
