@@ -7,6 +7,7 @@ import { recommendNext } from "@/domain/recommend";
 import type { Activity, LearnerRecord } from "@/domain/types";
 import { t } from "@/i18n/en";
 import { useI18n } from "@/i18n";
+import { isArabic } from "@/i18n/core";
 import { PathCover } from "@/components/PathArt";
 import { SkillStatusBadge } from "@/components/SkillStatus";
 import { SkillRing, skillHue } from "@/components/SkillRing";
@@ -258,7 +259,7 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
             <p className="mt-1 text-sm text-muted">{meta.prerequisites}</p>
             <h4 className="mt-5 text-sm font-medium text-fg">{tr("Free sample boundaries")}</h4>
             <p className="mt-1 text-sm text-muted">
-              {tr("Free without a subscription: {list}.", { list: freeList.join(locale === "ar" ? "، " : ", ") || tr("none") })}
+              {tr("Free without a subscription: {list}.", { list: freeList.join(isArabic(locale) ? "، " : ", ") || tr("none") })}
               {!isPreviewPath && " " + tr("Everything else in this path is included with the subscription. Evidence from free samples is kept if you subscribe.")}
             </p>
           </section>

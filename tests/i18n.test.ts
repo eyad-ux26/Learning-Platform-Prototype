@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { localizeDeep, registerArabic, translate } from "@/i18n/core";
+import { localizeDeep, registerArabic, registerEgyptian, translate } from "@/i18n/core";
+
 
 describe("localisation core", () => {
   it("returns English unchanged and fills placeholders", () => {
@@ -23,5 +24,17 @@ describe("localisation core", () => {
     registerArabic({ "First part.": "الجزء الأول.", "Second part.": "الجزء الثاني.", "Left clause": "الجملة الأولى" });
     expect(localizeDeep("First part. Second part.", "ar")).toBe("الجزء الأول. الجزء الثاني.");
     expect(localizeDeep("Left clause · untouched", "ar")).toBe("الجملة الأولى · untouched");
+  });
+});
+
+
+describe("Egyptian layer", () => {
+  it("overrides the base entry and falls back to it", () => {
+    registerArabic({ Hello: "مرحبًا", Bye: "مع السلامة" });
+    registerEgyptian({ Hello: "أهلاً" });
+    expect(localizeDeep("Hello", "ar-EG")).toBe("أهلاً");
+    expect(localizeDeep("Bye", "ar-EG")).toBe("مع السلامة");
+    expect(localizeDeep("Hello", "ar")).toBe("مرحبًا");
+    expect(translate("ar-EG", "Hello")).toBe("أهلاً");
   });
 });

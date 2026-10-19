@@ -21,7 +21,7 @@ export type Action =
   | { type: "cancelSubscription"; now: string }
   | { type: "resumeSubscription" }
   | { type: "setPreferences"; prefs: Partial<LearnerPreferences> }
-  | { type: "setLanguage"; language: "en" | "ar" }
+  | { type: "setLanguage"; language: "en" | "ar" | "ar-EG" }
   | { type: "setRole"; learnerId: string; role: Role }
   | { type: "setDirectoryOverride"; userId: string; role?: Role; plan?: AccessState["plan"] }
   | { type: "catalog/saveDraft"; pathId: string; bundle: PathBundle; now: string }

@@ -130,8 +130,8 @@ mark.src-hl {
 }
 
 /* Arabic: letter-spacing breaks joined letters, and directional icons point the other way. */
-[lang="ar"] * { letter-spacing: normal !important; }
-[lang="ar"] body { line-height: 1.7; }
+*:lang(ar) { letter-spacing: normal !important; }
+body:lang(ar) { line-height: 1.7; }
 [dir="rtl"] .lucide-arrow-right,
 [dir="rtl"] .lucide-arrow-left,
 [dir="rtl"] .lucide-chevron-right,

@@ -2,13 +2,13 @@
 
 import { useCallback, useMemo } from "react";
 import { useApp } from "@/state/AppState";
-import { dateLocale, dirOf, localizeDeep, translate, type Locale } from "./core";
+import { asLocale, dateLocale, dirOf, localizeDeep, translate, type Locale } from "./core";
 
 export { LOCALES, dirOf, type Locale } from "./core";
 
 export function useLocale(): Locale {
   const { learner } = useApp();
-  return learner?.preferences.language === "ar" ? "ar" : "en";
+  return asLocale(learner?.preferences.language);
 }
 
 /** `tr` for interface text, `L` for authored content and domain messages, `date` for locale-aware dates. */

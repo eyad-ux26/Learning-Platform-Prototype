@@ -441,7 +441,7 @@ export interface LearnerPreferences {
   /** Interface sound cues. Treated as on when absent (older saved data). */
   sound?: boolean;
   /** Interface and content language. Stored data stays English; Arabic is applied at display time. */
-  language?: "en" | "ar";
+  language?: "en" | "ar" | "ar-EG";
 }
 
 export interface LearnerRecord {

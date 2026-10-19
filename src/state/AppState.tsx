@@ -13,7 +13,8 @@ import { Spinner } from "@/components/ui";
 import { setSoundEnabled } from "@/components/sfx";
 import { reducer, type Action } from "./reducer";
 import "@/i18n/ar";
-import { dirOf, localizeDeep, type Locale } from "@/i18n/core";
+import "@/i18n/eg";
+import { asLocale, dirOf, localizeDeep, type Locale } from "@/i18n/core";
 
 interface AppContextValue {
   state: PrototypeState;
@@ -63,8 +64,8 @@ export function AppProvider({ children, repository }: { children: ReactNode; rep
     if (!learner) return;
     document.documentElement.dataset.reducedMotion = String(learner.preferences.reducedMotion);
     setSoundEnabled(learner.preferences.sound !== false);
-    const lang = learner.preferences.language === "ar" ? "ar" : "en";
-    document.documentElement.lang = lang;
+    const lang = asLocale(learner.preferences.language);
+    document.documentElement.lang = lang === "en" ? "en" : lang;
     document.documentElement.dir = dirOf(lang);
   }, [learner]);
 
@@ -154,7 +155,7 @@ export function getPathView(state: PrototypeState, learner: LearnerRecord, pathI
   const pathEvidence = learner.evidence.filter((e) => ids.has(e.activityId));
   const progress: Record<string, SkillProgress> = {};
   for (const s of bundle.skills) progress[s.id] = deriveSkillProgress(s.id, pathEvidence);
-  const locale: Locale = localize && learner.preferences.language === "ar" ? "ar" : "en";
+  const locale: Locale = localize ? asLocale(learner.preferences.language) : "en";
   const L = <T,>(v: T) => localizeDeep(v, locale);
   const completion = derivePathCompletion(bundle, pathEvidence);
   const localProgress: Record<string, SkillProgress> = {};

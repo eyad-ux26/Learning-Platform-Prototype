@@ -7,7 +7,8 @@ import { cn } from "@/components/ui";
 
 const OPTIONS: { id: Locale; label: string; name: string; lang: string }[] = [
   { id: "en", label: "EN", name: "English", lang: "en" },
-  { id: "ar", label: "عربي", name: "العربية", lang: "ar" },
+  { id: "ar", label: "عربي", name: "العربية الفصحى", lang: "ar" },
+  { id: "ar-EG", label: "مصري", name: "العربية المصرية", lang: "ar-EG" },
 ];
 
 /** Language controller. Both names are written in their own language so it is findable from either one. */
