@@ -46,6 +46,18 @@ async function journey(name, fn) {
   }
 }
 const radio = (re) => page.getByRole("radio", { name: re });
+// Design Bench shows one decision at a time; jump through the layers list until the option is on screen.
+async function reveal(re) {
+  const layers = page.getByRole("list", { name: "Decisions" }).getByRole("button");
+  const n = await layers.count();
+  for (let i = 0; i < Math.max(n, 1); i++) {
+    if (await radio(re).count()) return radio(re);
+    if (n) await layers.nth(i).click();
+  }
+  return radio(re);
+}
+const pick = async (re) => (await reveal(re)).locator("xpath=ancestor::label").click();
+const isPicked = async (re) => (await reveal(re)).isChecked();
 
 const browser = await chromium.launch({ executablePath });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -67,20 +79,20 @@ await journey("1. Complete an activity and inspect its feedback", async () => {
   // Incomplete submission is handled clearly.
   await page.getByRole("button", { name: "Submit response" }).click();
   await page.getByText("Your response is incomplete").waitFor();
-  await radio(/Pre-fill the field in a distinct/).check();
-  await radio(/Name the ambiguity/).check();
-  await radio(/View source.*opens the message/).check();
-  await radio(/Choose between the two candidate Fridays/).check();
-  await radio(/Apply when the user selects Accept/).check();
-  await radio(/Undo toast plus revertible history/).check();
+  await pick(/Pre-fill the field in a distinct/);
+  await pick(/Name the ambiguity/);
+  await pick(/View source.*opens the message/);
+  await pick(/Choose between the two candidate Fridays/);
+  await pick(/Apply when the user selects Accept/);
+  await pick(/Undo toast plus revertible history/);
   // Use the interactive preview.
-  await page.getByRole("button", { name: "View source" }).click();
+  await page.getByRole("button", { name: "View source", exact: true }).click();
   await page.getByText("Hey Ana").waitFor();
   await page.getByRole("button", { name: "Fri, 20 Mar" }).click();
   await shot("03-design-bench-preview");
   await page.getByRole("button", { name: "Accept", exact: true }).click();
   await page.getByText("What happened (simulation)").waitFor();
-  await page.getByRole("button", { name: "Undo" }).first().click();
+  await page.getByRole("button", { name: "Undo", exact: true }).first().click();
   await page.getByText(/User selected Undo/).waitFor();
   await page.getByRole("button", { name: "Submit response" }).click();
   await page.locator("#feedback-heading").waitFor();
@@ -92,9 +104,9 @@ await journey("1. Complete an activity and inspect its feedback", async () => {
 await journey("2. Fail a criterion and receive an alternative challenge", async () => {
   await switchTo("Priya");
   await go("/paths/calibrated-trust/practice/bench-booking");
-  await radio(/One-tap “Accept” on the suggestion/).check();
-  await radio(/“Found a better time”/).check();
-  await radio(/10-second “Undo” that restores the calendar/).check();
+  await pick(/One-tap “Accept” on the suggestion/);
+  await pick(/“Found a better time”/);
+  await pick(/10-second “Undo” that restores the calendar/);
   await page.getByRole("button", { name: "Submit response" }).click();
   await page.locator("#feedback-heading").waitFor();
   check(await page.getByText("What needs improvement").isVisible(), "should list improvements");
@@ -111,9 +123,9 @@ await journey("2. Fail a criterion and receive an alternative challenge", async 
   await page.getByRole("heading", { name: "Moving a client’s appointment" }).waitFor();
   // Take the recommended alternative and get updated evidence.
   await go("/paths/calibrated-trust/practice/bench-pricing");
-  await radio(/Full before\/after list/).check();
-  await radio(/Staged review/).check();
-  await radio(/“Revert this batch” for 30 days/).check();
+  await pick(/Full before\/after list/);
+  await pick(/Staged review/);
+  await pick(/“Revert this batch” for 30 days/);
   await page.getByRole("button", { name: "Submit response" }).click();
   await page.locator("#feedback-heading").waitFor();
   await go("/paths/calibrated-trust/skills");
@@ -128,11 +140,11 @@ await journey("3. Refresh and resume an unfinished response", async () => {
   await go("/");
   await page.getByRole("link", { name: "Resume activity" }).click();
   await page.getByRole("heading", { name: "A summary at the top of a policy" }).waitFor();
-  check(await radio(/Insert it as a labelled ‘Assistant draft’ block/).isChecked(), "saved selection should be restored");
-  await radio(/List the sections used and those left out/).check();
+  check(await isPicked(/Insert it as a labelled ‘Assistant draft’ block/), "saved selection should be restored");
+  await pick(/List the sections used and those left out/);
   await page.reload({ waitUntil: "networkidle" });
   await page.getByRole("heading", { name: "A summary at the top of a policy" }).waitFor();
-  check(await radio(/List the sections used and those left out/).isChecked(), "new selection should survive refresh");
+  check(await isPicked(/List the sections used and those left out/), "new selection should survive refresh");
   check(await page.getByText("Remote work policy v3 — §4.2 Equipment").isVisible(), "preview state (open source) should survive");
   await shot("08-resumed-after-refresh");
 });

@@ -74,7 +74,7 @@ export function CritiqueControls({
                 type="button"
                 onClick={() => onSelect(h.id)}
                 aria-current={selected === h.id ? "true" : undefined}
-                className={cn("flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-start text-sm", selected === h.id ? "border-accent/60 bg-accent/5" : "border-line bg-surface hover:border-line-strong")}
+                className={cn("flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-start text-sm", selected === h.id ? "border-brand-strong bg-brand-deep" : "border-line bg-surface hover:border-line-strong")}
               >
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-raised text-xs font-semibold">{i + 1}</span>
                 <span className="min-w-0 flex-1 truncate text-fg">{h.label}</span>
@@ -120,7 +120,7 @@ export function CritiqueControls({
                 <legend className="mb-2 text-sm text-muted">Your judgement</legend>
                 <div className="grid grid-cols-2 gap-2">
                   {(["acceptable", "problematic"] as const).map((v) => (
-                    <label key={v} className={cn("flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border text-sm font-medium has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent", r.verdict === v ? (v === "acceptable" ? "border-ok/50 bg-ok-bg text-ok" : "border-bad/50 bg-bad-bg text-bad") : "border-line bg-surface text-fg")}>
+                    <label key={v} className={cn("flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border-[1.5px] text-sm font-semibold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent", r.verdict === v ? (v === "acceptable" ? "border-ok/50 bg-ok-bg text-ok" : "border-bad/50 bg-bad-bg text-bad") : "border-line bg-surface text-fg")}>
                       <input type="radio" className="sr-only" name={`verdict-${hotspot.id}`} checked={r.verdict === v} onChange={() => onReview(hotspot.id, { ...r, verdict: v, reason: r.verdict === v ? r.reason : undefined })} />
                       {v === "acceptable" ? <Check size={15} aria-hidden /> : <X size={15} aria-hidden />}
                       {v === "acceptable" ? "Acceptable" : "Problematic"}

@@ -46,7 +46,7 @@ export function DecisionControls({ activity, choices, onChoices, readOnly }: { a
       {node && !readOnly ? (
         <fieldset className="space-y-3 animate-rise" key={node.id}>
           <legend className="sr-only">{node.prompt}</legend>
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent">Decision {stepNo} · {node.title}</p>
+          <p className="font-mono text-xs font-semibold text-accent">Decision {stepNo} · {node.title}</p>
           <p className="text-sm leading-relaxed text-fg">{node.situation}</p>
           {node.facts && (
             <dl className="grid grid-cols-2 gap-2">
@@ -58,17 +58,17 @@ export function DecisionControls({ activity, choices, onChoices, readOnly }: { a
               ))}
             </dl>
           )}
-          <p className="text-sm font-semibold text-fg" aria-hidden>{node.prompt}</p>
+          <p className="font-display text-2xl font-extrabold leading-tight tracking-tight text-fg" aria-hidden>{node.prompt}</p>
           <div className="space-y-2">
             {node.choices.map((c) => (
               <label
                 key={c.id}
                 className={cn(
-                  "flex cursor-pointer gap-3 rounded-lg border p-3 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent",
-                  pending === c.id ? "border-accent/60 bg-accent/5" : "border-line bg-surface hover:border-line-strong",
+                  "flex cursor-pointer gap-3 rounded-2xl border-[1.5px] p-3.5 transition-[transform,border-color] hover:-translate-y-0.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent",
+                  pending === c.id ? "border-brand-strong bg-brand-deep" : "border-line bg-surface hover:border-line-strong",
                 )}
               >
-                <input type="radio" name={`${activity.id}-${node.id}`} checked={pending === c.id} onChange={() => setPending(c.id)} className="mt-1 h-4 w-4 shrink-0 accent-[#8fb3ff]" />
+                <input type="radio" name={`${activity.id}-${node.id}`} checked={pending === c.id} onChange={() => setPending(c.id)} className="mt-1 h-4 w-4 shrink-0 accent-[#7b6cff]" />
                 <span>
                   <span className="block text-sm font-medium text-fg">{c.label}</span>
                   <span className="text-xs text-muted">{c.detail}</span>

@@ -193,7 +193,7 @@ export function Dialog({
 
 // ---------- Tabs (accessible, manual activation) ----------
 
-export function Tabs<T extends string>({ tabs, value, onChange, label, className }: { tabs: { id: T; label: ReactNode; count?: number }[]; value: T; onChange: (v: T) => void; label: string; className?: string }) {
+export function Tabs<T extends string>({ tabs, value, onChange, label, className, numbered }: { numbered?: boolean; tabs: { id: T; label: ReactNode; count?: number }[]; value: T; onChange: (v: T) => void; label: string; className?: string }) {
   const base = useId();
   return (
     <div role="tablist" aria-label={label} className={cn("flex gap-1 overflow-x-auto rounded-xl border border-line bg-surface p-1", className)}>
@@ -215,9 +215,10 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, className
           }}
           className={cn(
             "flex min-h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors",
-            value === tab.id ? "bg-overlay text-fg" : "text-muted hover:text-fg",
+            value === tab.id ? "bg-brand-deep text-white" : "text-muted hover:text-fg",
           )}
         >
+          {numbered && <span aria-hidden className={cn("flex h-5 w-5 items-center justify-center rounded-full font-mono text-[11px] text-white", value === tab.id ? "bg-brand-strong" : "bg-line-strong")}>{i + 1}</span>}
           {tab.label}
           {tab.count !== undefined && <span className="rounded-full bg-canvas px-1.5 text-xs text-subtle">{tab.count}</span>}
         </button>

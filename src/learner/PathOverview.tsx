@@ -8,10 +8,17 @@ import type { Activity, LearnerRecord } from "@/domain/types";
 import { t } from "@/i18n/en";
 import { PathCover } from "@/components/PathArt";
 import { SkillStatusBadge } from "@/components/SkillStatus";
-import { SkillRing } from "@/components/SkillRing";
+import { SkillRing, skillHue } from "@/components/SkillRing";
 import { Badge, Card, Frame, Handles, LinkButton, Notice, SectionHeading, cn } from "@/components/ui";
 import type { PathView } from "@/state/AppState";
 import { AccessBadge } from "./PathCard";
+
+const COLUMNS = [
+  { id: "inbox", label: "Inbox", hue: "#8c8b9e" },
+  { id: "progress", label: "In progress", hue: "#ffc94d" },
+  { id: "reopened", label: "Reopened", hue: "#ff7d5c" },
+  { id: "shipped", label: "Shipped", hue: "#5ee0a8" },
+] as const;
 
 const TEMPLATE = { "design-bench": "Design Bench", critique: "Critique", decision: "Decision Scenario" } as const;
 
@@ -38,12 +45,12 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
           ? { href: `${base}/practice/${firstSample.id}`, label: isPreviewPath ? "Try the free sample" : "Start with practice" }
           : undefined;
 
-  const activityStatus = (a: Activity) => {
+  /** Board column: derived from the learner's own drafts and attempts, never from a stored flag. */
+  const columnOf = (a: Activity): "inbox" | "progress" | "reopened" | "shipped" => {
+    if (learner.drafts[a.id]) return "progress";
     const attempts = view.pathAttempts.filter((x) => x.activityId === a.id);
-    if (learner.drafts[a.id]) return { label: "In progress", tone: "warn" as const };
-    if (!attempts.length) return null;
-    const last = attempts[attempts.length - 1];
-    return last.evaluation.skills.every((s) => s.met) ? { label: "All criteria met", tone: "ok" as const } : { label: "Attempted", tone: "neutral" as const };
+    if (!attempts.length) return "inbox";
+    return attempts[attempts.length - 1].evaluation.skills.every((s) => s.met) ? "shipped" : "reopened";
   };
 
   return (
@@ -147,34 +154,44 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
             <section aria-labelledby="practice">
               <SectionHeading id="practice" title="Interactive practice" eyebrow={`${bundle.activities.length} ${bundle.activities.length === 1 ? "activity" : "activities"}`} />
               <p className="mt-2 text-sm text-muted">Start anywhere. Alternative activities offer different contexts for the same skills.</p>
-              <ul className="mt-4 divide-y divide-line overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface">
-                {bundle.activities.map((a) => {
-                  const free = meta.freeSampleActivityIds.includes(a.id);
-                  const locked = !view.canAccess(a.id);
-                  const st = activityStatus(a);
+              <div className="-mx-4 mt-6 flex snap-x gap-3 overflow-x-auto px-4 pb-3 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 2xl:grid-cols-4">
+                {COLUMNS.map((col) => {
+                  const items = bundle.activities.filter((a) => columnOf(a) === col.id);
                   return (
-                    <li key={a.id}>
-                      <Link href={`${base}/practice/${a.id}`} className="flex flex-col gap-2 p-4 hover:bg-raised sm:flex-row sm:items-center sm:gap-4">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-subtle">
-                            <span>{TEMPLATE[a.template]}</span>
-                            <span aria-hidden>·</span>
-                            <span>{a.contextLabel}</span>
-                            {a.kind === "alternative" && <Badge>Alternative</Badge>}
-                          </div>
-                          <p className="mt-1 font-medium text-fg">{a.title}</p>
-                          <p className="mt-1 text-xs text-muted">Assesses: {skillsAssessedBy(a, bundle.skills).map((id) => bundle.skills.find((s) => s.id === id)?.name).join(" · ")}</p>
-                        </div>
-                        <div className="flex shrink-0 flex-wrap items-center gap-2">
-                          {st && <Badge tone={st.tone}>{st.label}</Badge>}
-                          {free ? <Badge tone="accent" icon={<Gift size={11} aria-hidden />}>{t.access.free}</Badge> : locked ? <Badge icon={<Lock size={11} aria-hidden />}>Subscription</Badge> : null}
-                          <span className="text-xs text-subtle">{a.estimatedMinutes} min</span>
-                        </div>
-                      </Link>
-                    </li>
+                    <section key={col.id} aria-label={col.label} className={cn("w-[78vw] shrink-0 snap-start rounded-[22px] border p-3 sm:w-auto", col.id === "reopened" ? "border-sk-coral/40 bg-bad-bg/40" : "border-line bg-surface/70")}>
+                      <h3 className="mb-3 flex items-center gap-2 px-1 font-mono text-xs font-semibold" style={{ color: col.hue }}>
+                        <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: col.hue }} />
+                        {col.label}
+                        <span className="ms-auto rounded-full bg-canvas px-2 text-subtle">{items.length}</span>
+                      </h3>
+                      <ul className="space-y-2.5">
+                        {items.length === 0 && <li className="rounded-2xl border border-dashed border-line-strong px-3 py-4 text-center text-xs text-subtle">Nothing here</li>}
+                        {items.map((a) => {
+                          const free = meta.freeSampleActivityIds.includes(a.id);
+                          const locked = !view.canAccess(a.id);
+                          const ids = skillsAssessedBy(a, bundle.skills);
+                          return (
+                            <li key={a.id}>
+                              <Link href={`${base}/practice/${a.id}`} className="block rounded-2xl border border-line bg-raised p-3.5 transition-[transform,border-color] hover:-translate-y-0.5 hover:border-brand-strong">
+                                <p className="font-mono text-[11px] text-subtle">{TEMPLATE[a.template]} · {a.estimatedMinutes} min</p>
+                                <p className="mt-1 font-display text-base font-extrabold leading-snug tracking-tight text-fg">{a.title}</p>
+                                <p className="mt-0.5 text-xs text-muted">{a.contextLabel}</p>
+                                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                                  <span className="flex gap-1" aria-label={`Assesses: ${ids.map((id) => bundle.skills.find((s) => s.id === id)?.name).join(", ")}`} role="img">
+                                    {ids.map((id) => <span key={id} className="h-2 w-5 rounded-full" style={{ background: skillHue(bundle.skills.findIndex((s) => s.id === id)) }} />)}
+                                  </span>
+                                  {a.kind === "alternative" && <Badge>Alternative</Badge>}
+                                  {free ? <Badge tone="accent" icon={<Gift size={11} aria-hidden />}>{t.access.free}</Badge> : locked ? <Badge icon={<Lock size={11} aria-hidden />}>Subscription</Badge> : null}
+                                </div>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
                   );
                 })}
-              </ul>
+              </div>
             </section>
           )}
 

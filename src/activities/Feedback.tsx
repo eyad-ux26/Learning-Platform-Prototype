@@ -111,7 +111,7 @@ export function FeedbackPanel({
 
       {met.length > 0 && (
         <section aria-labelledby="fb-worked" className="space-y-3">
-          <h3 id="fb-worked" className="text-sm font-semibold uppercase tracking-wide text-ok">What worked</h3>
+          <h3 id="fb-worked" className="font-mono text-xs font-semibold text-ok">What worked</h3>
           {met.map((c) => (
             <CriterionCard key={c.criterionId} title={criterion(c.criterionId)?.statement ?? c.criterionId} skill={skillName(c.skillId)} result={c} tone="ok" />
           ))}
@@ -120,9 +120,9 @@ export function FeedbackPanel({
 
       {unmet.length > 0 && (
         <section aria-labelledby="fb-improve" className="space-y-3">
-          <h3 id="fb-improve" className="text-sm font-semibold uppercase tracking-wide text-warn">What needs improvement</h3>
-          {unmet.map((c) => (
-            <CriterionCard key={c.criterionId} title={criterion(c.criterionId)?.statement ?? c.criterionId} skill={skillName(c.skillId)} result={c} tone="warn" />
+          <h3 id="fb-improve" className="font-mono text-xs font-semibold text-bad">What needs improvement</h3>
+          {unmet.map((c, i) => (
+            <CriterionCard key={c.criterionId} title={criterion(c.criterionId)?.statement ?? c.criterionId} skill={skillName(c.skillId)} result={c} tone="warn" defaultOpen={i === 0} />
           ))}
         </section>
       )}
@@ -207,29 +207,39 @@ export function FeedbackPanel({
   );
 }
 
-function CriterionCard({ title, skill, result, tone }: { title: string; skill: string; result: Evaluation["criteria"][number]; tone: "ok" | "warn" }) {
+function CriterionCard({ title, skill, result, tone, defaultOpen }: { title: string; skill: string; result: Evaluation["criteria"][number]; tone: "ok" | "warn"; defaultOpen?: boolean }) {
+  const ok = tone === "ok";
   return (
-    <article className={cn("rounded-xl border p-4", tone === "ok" ? "border-ok/25 bg-ok-bg/40" : "border-warn/25 bg-warn-bg/40")}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="text-sm font-semibold text-fg">{title}</p>
-        <Badge>{skill}</Badge>
+    <details open={defaultOpen} className={cn("group overflow-hidden rounded-2xl border bg-surface", ok ? "border-line" : "border-sk-coral/40")}>
+      <summary className="flex cursor-pointer list-none items-center gap-3 p-3.5">
+        <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]", ok ? "bg-ok-bg text-ok" : "bg-bad-bg text-bad")}>
+          {ok ? <CheckCircle2 size={16} aria-hidden /> : <RotateCcw size={16} aria-hidden />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-mono text-[11px] text-subtle">{skill}</span>
+          <span className="block text-sm font-semibold leading-snug text-fg">{title}</span>
+        </span>
+        <span className={cn("shrink-0 rounded-full px-2.5 py-1 font-mono text-xs font-semibold", ok ? "bg-ok-bg text-ok" : "bg-bad-bg text-bad")}>{ok ? "Closed" : "Reopened"}</span>
+        <span aria-hidden className="text-subtle transition-transform group-open:rotate-180">⌄</span>
+      </summary>
+      <div className="space-y-3 px-4 pb-4 ps-[3.75rem]">
+        <p className="text-sm leading-relaxed text-fg">{result.feedback}</p>
+        {result.evidence.length > 0 && (
+          <div>
+            <p className="font-mono text-xs font-semibold text-subtle">In your response</p>
+            <ul className="mt-1 space-y-1 text-sm text-muted">
+              {result.evidence.map((e, i) => <li key={i}>{e}</li>)}
+            </ul>
+          </div>
+        )}
+        {result.consequence && (
+          <p className="text-sm text-muted">
+            <span className="font-medium text-fg">{ok ? "Effect for users: " : "Practical consequence: "}</span>
+            {result.consequence}
+          </p>
+        )}
       </div>
-      <p className="mt-2 text-sm text-fg">{result.feedback}</p>
-      {result.evidence.length > 0 && (
-        <div className="mt-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">In your response</p>
-          <ul className="mt-1 space-y-1 text-sm text-muted">
-            {result.evidence.map((e, i) => <li key={i}>{e}</li>)}
-          </ul>
-        </div>
-      )}
-      {result.consequence && (
-        <p className="mt-3 text-sm text-muted">
-          <span className="font-medium text-fg">{tone === "ok" ? "Effect for users: " : "Practical consequence: "}</span>
-          {result.consequence}
-        </p>
-      )}
-    </article>
+    </details>
   );
 }
 

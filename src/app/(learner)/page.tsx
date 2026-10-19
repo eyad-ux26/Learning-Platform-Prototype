@@ -8,7 +8,7 @@ import { recommendNext } from "@/domain/recommend";
 import { t } from "@/i18n/en";
 import { useApp, visibleLibrary } from "@/state/AppState";
 import { Badge, Button, EmptyState, Frame, Handles, LinkButton, SectionHeading, inputClass } from "@/components/ui";
-import { CountRing } from "@/components/SkillRing";
+import { CountRing, SkillRing } from "@/components/SkillRing";
 import { PathCard, pathProgressState, type ProgressState } from "@/learner/PathCard";
 
 export default function HomePage() {
@@ -42,6 +42,12 @@ export default function HomePage() {
   const resume = learner.lastLocation && learner.drafts[learner.lastLocation.href.split("/").pop() ?? ""] ? learner.lastLocation : undefined;
   const rec = flagship ? recommendNext({ bundle: flagship.bundle, evidence: flagship.pathEvidence, attempts: flagship.pathAttempts, canAccess: flagship.canAccess }) : undefined;
   const recActivity = rec?.type === "activity" ? flagship!.bundle.activities.find((a) => a.id === rec.activityId) : undefined;
+  const reopened = (flagship?.bundle.skills ?? [])
+    .map((skill, index) => ({ skill, index }))
+    .filter(({ skill }) => {
+      const p = flagship!.progress[skill.id];
+      return p.practiceRecommended || (p.status === "developing" && p.lastResult?.met === false);
+    });
   const isNew = learner.attempts.length === 0 && Object.keys(learner.viewedConcepts).length === 0;
   const firstName = learner.name.split(" ")[0];
 
@@ -100,6 +106,25 @@ export default function HomePage() {
           </div>
         </Handles>
       </Frame>
+
+      {reopened.length > 0 && flagship && (
+        <Frame name="Frame · Reopened" className="mt-10">
+          <section aria-label="Skills to revisit" className="rounded-[22px] border-[1.5px] border-sk-coral/50 bg-bad-bg p-5">
+            <h2 className="font-display text-2xl font-extrabold tracking-tight text-fg">Worth another go</h2>
+            <p className="mt-1 text-sm text-muted">Your latest attempt missed a criterion. Each comes back in a different context.</p>
+            <ul className="mt-4 flex flex-wrap gap-3">
+              {reopened.map(({ skill, index }) => (
+                <li key={skill.id}>
+                  <Link href={`/paths/${FLAGSHIP_ID}/skills`} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 pe-4 hover:border-sk-coral">
+                    <SkillRing index={index} progress={flagship.progress[skill.id]} size={44} />
+                    <span className="text-sm font-semibold text-fg">{skill.name}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </Frame>
+      )}
 
       {/* Library */}
       <section aria-labelledby="library" className="mt-14">

@@ -300,7 +300,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
 
       {/* Mobile and tablet section tabs */}
       <div className="sticky top-16 z-30 -mx-4 mt-4 bg-canvas/95 px-4 py-2 xl:hidden">
-        <Tabs label="Workspace sections" tabs={tabs} value={section} onChange={setSection} />
+        <Tabs numbered label="Workspace sections" tabs={tabs} value={section} onChange={setSection} />
       </div>
 
       <div className={cn("mt-4 grid gap-6", "lg:grid-cols-[minmax(320px,400px)_1fr] xl:grid-cols-[300px_minmax(340px,400px)_1fr]")}>
