@@ -7,6 +7,7 @@ import { ArrowLeft, BookOpen, CheckCircle2, Clock, HelpCircle, Lightbulb, Lock, 
 import { checkCompleteness, emptyResponse, evaluate, skillsAssessedBy } from "@/domain/assessment";
 import type { Activity, ActivityResponse, Attempt, Evaluation, WorkDraft } from "@/domain/types";
 import { t } from "@/i18n/en";
+import { useI18n } from "@/i18n";
 import { useApp, type PathView } from "@/state/AppState";
 import { Badge, Button, Dialog, LinkButton, Notice, Tabs, cn } from "@/components/ui";
 import { SkillStatusBadge } from "@/components/SkillStatus";
@@ -29,12 +30,15 @@ type Section = "brief" | "controls" | "stage" | "feedback";
 
 export function Workspace({ view, activity, mode, backHref }: { view: PathView; activity: Activity; mode: "learner" | "preview"; backHref: string }) {
   const { learner, dispatch, submit } = useApp();
+  const { tr, L, dateTime } = useI18n();
   const router = useRouter();
+  // Assessment always runs on the stored English activity; the `activity` prop is what is displayed.
+  const rawActivity = (view.rawBundle.activities.find((a) => a.id === activity.id) ?? activity) as Activity;
   const version = view.version.version;
   const saved = mode === "learner" ? learner.drafts[activity.id] : undefined;
-  const usableDraft = saved && saved.contentVersion === version && saved.response.template === activity.template ? saved : undefined;
+  const usableDraft = saved && saved.contentVersion === version && saved.response.template === rawActivity.template ? saved : undefined;
 
-  const [response, setResponse] = useState<ActivityResponse>(() => usableDraft?.response ?? emptyResponse(activity));
+  const [response, setResponse] = useState<ActivityResponse>(() => usableDraft?.response ?? emptyResponse(rawActivity));
   const [ui, setUi] = useState<Record<string, unknown>>(() => usableDraft?.ui ?? {});
   const [hintsShown, setHintsShown] = useState(() => (usableDraft?.hintsUsed ? 1 : 0));
   const [solutionRevealed, setSolutionRevealed] = useState(() => !!usableDraft?.solutionRevealed);
@@ -93,9 +97,9 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
 
   // ---------- Template wiring ----------
   const preview = useMemo<PreviewState | undefined>(() => {
-    if (activity.template !== "design-bench" || response.template !== "design-bench") return undefined;
-    return (ui.preview as PreviewState | undefined) ?? initialPreviewState(activity, behavioursFor(activity, response.selections));
-  }, [activity, response, ui.preview]);
+    if (rawActivity.template !== "design-bench" || response.template !== "design-bench") return undefined;
+    return (ui.preview as PreviewState | undefined) ?? initialPreviewState(rawActivity, behavioursFor(rawActivity, response.selections));
+  }, [rawActivity, response, ui.preview]);
 
   let controls: React.ReactNode = null;
   let stage: React.ReactNode = null;
@@ -107,7 +111,8 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
     controlsLabel = "Decisions";
     const onSelect = (decisionId: string, optionId: string) => {
       const selections = { ...response.selections, [decisionId]: optionId };
-      const fresh = initialPreviewState(activity, behavioursFor(activity, selections));
+      const raw = rawActivity as typeof activity;
+      const fresh = initialPreviewState(raw, behavioursFor(raw, selections));
       updateResponse({ template: "design-bench", selections }, { preview: { ...fresh, sourceOpen: preview?.sourceOpen } });
     };
     controls = <DesignBenchControls activity={activity} selections={response.selections} onSelect={onSelect} readOnly={readOnly} evaluation={evaluation} />;
@@ -130,18 +135,18 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
 
   // ---------- Actions ----------
   const doSubmit = () => {
-    const c = checkCompleteness(activity, response);
+    const c = checkCompleteness(rawActivity, response);
     if (!c.complete) {
       setMissing(c.missing);
       setSection("controls");
       return;
     }
     if (mode === "learner") {
-      const attempt = submit({ bundle: view.bundle, version, activity, response, hintsUsed, solutionRevealed });
+      const attempt = submit({ bundle: view.rawBundle, version, activity: rawActivity, response, hintsUsed, solutionRevealed });
       playSfx(attempt.evaluation.skills.every((x) => x.met) ? "ship" : "reopen");
       setResult({ attempt, evaluation: attempt.evaluation });
     } else {
-      setResult({ evaluation: evaluate(activity, response, view.bundle.skills) });
+      setResult({ evaluation: evaluate(rawActivity, response, view.rawBundle.skills) });
     }
     setPhase("feedback");
     setSection("feedback");
@@ -160,7 +165,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   };
 
   const reset = () => {
-    const r = emptyResponse(activity);
+    const r = emptyResponse(rawActivity);
     setResponse(r);
     setUi({});
     setMissing(null);
@@ -184,12 +189,12 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   };
 
   // ---------- Layout ----------
-  const skillIds = skillsAssessedBy(activity, view.bundle.skills);
+  const skillIds = skillsAssessedBy(rawActivity, view.rawBundle.skills);
   const tabs: { id: Section; label: string }[] = [
-    { id: "brief", label: "Brief" },
-    { id: "controls", label: controlsLabel },
-    { id: "stage", label: activity.template === "decision" ? "Situation" : "Interface" },
-    ...(phase === "feedback" ? [{ id: "feedback" as const, label: "Feedback" }] : []),
+    { id: "brief", label: tr("Brief") },
+    { id: "controls", label: tr(controlsLabel) },
+    { id: "stage", label: activity.template === "decision" ? tr("Situation") : tr("Interface") },
+    ...(phase === "feedback" ? [{ id: "feedback" as const, label: tr("Feedback") }] : []),
   ];
   const lastAttempt = mode === "learner" ? [...view.pathAttempts].reverse().find((a) => a.activityId === activity.id) : undefined;
 
@@ -199,7 +204,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sk-amber text-sm font-bold text-[#2b1f00]" aria-hidden>{activity.contextLabel.trim()[0]}</span>
           <div className="leading-tight">
-            <p className="text-sm font-semibold text-fg">Client brief</p>
+            <p className="text-sm font-semibold text-fg">{tr("Client brief")}</p>
             <p className="font-mono text-[11px] text-subtle">{activity.contextLabel}</p>
           </div>
         </div>
@@ -208,7 +213,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
       </div>
       <details className="group rounded-2xl border border-line bg-surface">
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 font-mono text-xs font-semibold text-accent">
-          Constraints ({activity.constraints.length})
+          {tr("Constraints ({n})", { n: activity.constraints.length })}
           <span aria-hidden className="transition-transform group-open:rotate-180">⌄</span>
         </summary>
         <ul className="list-disc space-y-1 px-4 pb-3 ps-8 text-sm text-muted">
@@ -233,12 +238,12 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
                   </div>
                 </div>
                 <details className="mt-2">
-                  <summary className="cursor-pointer text-xs text-subtle hover:text-fg">What is assessed</summary>
+                  <summary className="cursor-pointer text-xs text-subtle hover:text-fg">{tr("What is assessed")}</summary>
                   <ul className="mt-1.5 space-y-0.5 text-xs text-muted">
                     {skill.criteria.filter((c) => activity.criteria.includes(c.id)).map((c) => <li key={c.id}>• {c.statement}</li>)}
                   </ul>
                 </details>
-                {mode === "learner" && contextUsed && <p className="mt-1.5 text-xs text-subtle">Already met in this context. Retrying is good practice but won’t add a new context.</p>}
+                {mode === "learner" && contextUsed && <p className="mt-1.5 text-xs text-subtle">{tr("Already met in this context. Retrying is good practice but won’t add a new context.")}</p>}
               </li>
             );
           })}
@@ -246,9 +251,9 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
       </div>
       {lastAttempt && phase === "working" && (
         <p className="text-xs text-subtle">
-          Last submitted {new Date(lastAttempt.submittedAt).toLocaleString()} ·{" "}
+          {tr("Last submitted {when}", { when: dateTime(lastAttempt.submittedAt) })} ·{" "}
           <button type="button" className="text-accent hover:underline" onClick={() => { setResult({ attempt: lastAttempt, evaluation: lastAttempt.evaluation }); setResponse(lastAttempt.response); setPhase("feedback"); setSection("feedback"); }}>
-            view that feedback
+            {tr("view that feedback")}
           </button>
         </p>
       )}
@@ -264,52 +269,52 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
     <div className="mx-auto max-w-[1440px] px-4 pb-28 pt-4 sm:px-6 lg:pb-10">
       {/* Header */}
       <div className="flex flex-wrap items-start gap-3">
-        <Link href={backHref} className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-muted hover:text-fg" aria-label="Back">
+        <Link href={backHref} className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-muted hover:text-fg" aria-label={tr("Back")}>
           <ArrowLeft size={16} />
         </Link>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-accent">
-            <span>{TEMPLATE_LABEL[activity.template]}</span>
+            <span>{tr(TEMPLATE_LABEL[activity.template])}</span>
             <span aria-hidden>·</span>
             <span>{activity.contextLabel}</span>
             <span aria-hidden>·</span>
-            <span className="inline-flex items-center gap-1"><Clock size={12} aria-hidden /> about {activity.estimatedMinutes} min</span>
-            {view.bundle.meta.freeSampleActivityIds.includes(activity.id) && <Badge tone="accent">{t.access.free}</Badge>}
-            {activity.kind === "alternative" && <Badge>Alternative practice</Badge>}
-            {mode === "preview" && <Badge tone="ai">Admin preview · v{version}</Badge>}
+            <span className="inline-flex items-center gap-1"><Clock size={12} aria-hidden /> {tr("about {n} min", { n: activity.estimatedMinutes })}</span>
+            {view.bundle.meta.freeSampleActivityIds.includes(activity.id) && <Badge tone="accent">{tr(t.access.free)}</Badge>}
+            {activity.kind === "alternative" && <Badge>{tr("Alternative practice")}</Badge>}
+            {mode === "preview" && <Badge tone="ai">{tr("Admin preview · v{version}", { version })}</Badge>}
           </div>
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-fg sm:text-3xl">{activity.title}</h1>
         </div>
         <div className="flex items-center gap-2">
           {mode === "learner" && (
             <span className="hidden items-center gap-1.5 text-xs text-subtle md:inline-flex" aria-live="polite">
-              <CheckCircle2 size={13} aria-hidden /> {savedAt ? t.practice.savedLocally : "Not started"}
+              <CheckCircle2 size={13} aria-hidden /> {savedAt ? tr(t.practice.savedLocally) : tr("Not started")}
             </span>
           )}
           <Button variant="ghost" size="sm" onClick={() => setHelpOpen(true)} aria-haspopup="dialog">
-            <HelpCircle size={15} aria-hidden /> {t.practice.help}
+            <HelpCircle size={15} aria-hidden /> {tr(t.practice.help)}
           </Button>
         </div>
       </div>
 
       {(hintsUsed || solutionRevealed) && phase === "working" && (
         <p className="mt-3 text-xs text-warn">
-          {solutionRevealed ? "Solution revealed: this attempt will be practice-only." : "Hint used: this attempt will count, but not as independent."}
+          {solutionRevealed ? tr("Solution revealed: this attempt will be practice-only.") : tr("Hint used: this attempt will count, but not as independent.")}
         </p>
       )}
 
       {/* Mobile and tablet section tabs */}
       <div className="sticky top-16 z-30 -mx-4 mt-4 bg-canvas/95 px-4 py-2 xl:hidden">
-        <Tabs numbered label="Workspace sections" tabs={tabs} value={section} onChange={setSection} />
+        <Tabs numbered label={tr("Workspace sections")} tabs={tabs} value={section} onChange={setSection} />
       </div>
 
       <div className={cn("mt-4 grid gap-6", "lg:grid-cols-[minmax(320px,400px)_1fr] xl:grid-cols-[300px_minmax(340px,400px)_1fr]")}>
-        <aside className={cn(vis("brief"), "lg:col-span-2 xl:col-span-1 xl:block")} aria-label="Brief">
-          <div className="xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pe-1"><ColumnTag n={1} pulse={phase === "working" && !hintsUsed}>Read first</ColumnTag>{brief}</div>
+        <aside className={cn(vis("brief"), "lg:col-span-2 xl:col-span-1 xl:block")} aria-label={tr("Brief")}>
+          <div className="xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pe-1"><ColumnTag n={1} pulse={phase === "working" && !hintsUsed}>{tr("Read first")}</ColumnTag>{brief}</div>
         </aside>
 
-        <section className={cn(phase === "feedback" ? vis("feedback") : vis("controls"), work, "xl:block")} aria-label={phase === "feedback" ? "Feedback" : controlsLabel}>
-          <ColumnTag n={2}>{phase === "feedback" ? "Ship review" : controlsLabel}</ColumnTag>
+        <section className={cn(phase === "feedback" ? vis("feedback") : vis("controls"), work, "xl:block")} aria-label={phase === "feedback" ? tr("Feedback") : tr(controlsLabel)}>
+          <ColumnTag n={2}>{phase === "feedback" ? tr("Ship review") : tr(controlsLabel)}</ColumnTag>
           {phase === "feedback" && result ? (
             <div ref={feedbackRef}>
               <FeedbackPanel view={view} activity={activity} attempt={result.attempt} evaluation={result.evaluation} mode={mode} onRetry={retry} />
@@ -317,10 +322,10 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
           ) : (
             <div className="space-y-4">
               {missing && (
-                <Notice tone="warn" title={t.practice.incomplete}>
+                <Notice tone="warn" title={tr(t.practice.incomplete)}>
                   <ul className="list-disc space-y-0.5 ps-4">
-                    {missing.slice(0, 6).map((m) => <li key={m}>{m}</li>)}
-                    {missing.length > 6 && <li>and {missing.length - 6} more</li>}
+                    {L(missing).slice(0, 6).map((m, i) => <li key={i}>{m}</li>)}
+                    {missing.length > 6 && <li>{tr("and {n} more", { n: missing.length - 6 })}</li>}
                   </ul>
                 </Notice>
               )}
@@ -329,9 +334,9 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
           )}
         </section>
 
-        <section className={cn(vis("stage"), work, "xl:block")} aria-label="Interface">
+        <section className={cn(vis("stage"), work, "xl:block")} aria-label={tr("Interface")}>
           <div className="lg:sticky lg:top-20">
-            <ColumnTag n={3}>Live</ColumnTag>
+            <ColumnTag n={3}>{tr("Live")}</ColumnTag>
             <div className="relative p-3">
               <span key={sig} aria-hidden className="sel-snap pointer-events-none absolute inset-0 z-10 hidden rounded-[22px] outline outline-2 outline-offset-4 outline-brand-strong/70 lg:block" />
               {stage}
@@ -346,33 +351,33 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-canvas/95 backdrop-blur lg:static lg:mt-8 lg:border-0 lg:bg-transparent">
           <div className="mx-auto flex max-w-[1440px] items-center gap-2 px-4 py-3 sm:px-6 lg:justify-end lg:px-0">
             <Button variant="ghost" onClick={() => setConfirmReset(true)}>
-              <RotateCcw size={15} aria-hidden /> <span className="hidden sm:inline">{t.practice.reset}</span>
+              <RotateCcw size={15} aria-hidden /> <span className="hidden sm:inline">{tr(t.practice.reset)}</span>
             </Button>
             {mode === "learner" && (
               <Button variant="secondary" onClick={() => { persist({}); router.push(backHref); }}>
-                <Save size={15} aria-hidden /> <span className="hidden sm:inline">{t.practice.saveExit}</span><span className="sm:hidden">Save</span>
+                <Save size={15} aria-hidden /> <span className="hidden sm:inline">{tr(t.practice.saveExit)}</span><span className="sm:hidden">{tr("Save")}</span>
               </Button>
             )}
             <Button variant="primary" onClick={doSubmit} className="ms-auto lg:ms-0">
-              <Send size={15} aria-hidden /> {t.practice.submit} <span className="ms-1 hidden rounded-md bg-black/20 px-1.5 font-mono text-[11px] sm:inline" aria-hidden>↵</span>
+              <Send size={15} aria-hidden /> {tr(t.practice.submit)} <span className="ms-1 hidden rounded-md bg-black/20 px-1.5 font-mono text-[11px] sm:inline" aria-hidden>↵</span>
             </Button>
           </div>
         </div>
       )}
 
       {/* Help */}
-      <Dialog open={helpOpen} onOpenChange={setHelpOpen} title="Help for this activity" wide>
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen} title={tr("Help for this activity")} wide>
         <div className="space-y-5 text-sm">
           <section>
-            <h3 className="font-semibold text-fg">How this activity works</h3>
-            <p className="mt-1 text-muted">{HOW_IT_WORKS[activity.template]}</p>
+            <h3 className="font-semibold text-fg">{tr("How this activity works")}</h3>
+            <p className="mt-1 text-muted">{tr(HOW_IT_WORKS[activity.template])}</p>
           </section>
           <section>
-            <h3 className="font-semibold text-fg">How evidence counts</h3>
-            <p className="mt-1 text-muted">{t.rule.short}</p>
+            <h3 className="font-semibold text-fg">{tr("How evidence counts")}</h3>
+            <p className="mt-1 text-muted">{tr(t.rule.short)}</p>
           </section>
           <section>
-            <h3 className="font-semibold text-fg">Related explanations</h3>
+            <h3 className="font-semibold text-fg">{tr("Related explanations")}</h3>
             <ul className="mt-1 space-y-1">
               {activity.relatedConcepts.map((id) => {
                 const c = view.bundle.explore.find((x) => x.id === id);
@@ -390,34 +395,34 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
                   </li>
                 );
               })}
-              {activity.relatedConcepts.length === 0 && <li className="text-muted">No Explore content is included for this sample.</li>}
+              {activity.relatedConcepts.length === 0 && <li className="text-muted">{tr("No Explore content is included for this sample.")}</li>}
             </ul>
-            <p className="mt-1 text-xs text-subtle">Your response is saved, and the explanation links back here. Reading does not affect how this attempt counts.</p>
+            <p className="mt-1 text-xs text-subtle">{tr("Your response is saved, and the explanation links back here. Reading does not affect how this attempt counts.")}</p>
           </section>
           <section>
-            <h3 className="font-semibold text-fg">Hints</h3>
+            <h3 className="font-semibold text-fg">{tr("Hints")}</h3>
             {hintsShown > 0 ? (
               <ol className="mt-1 list-decimal space-y-1 ps-5 text-muted">
                 {activity.hints.slice(0, hintsShown).map((h) => <li key={h}>{h}</li>)}
               </ol>
             ) : (
-              <p className="mt-1 text-muted">Hints are available. Using one means this attempt still counts as evidence, but not as an independent attempt.</p>
+              <p className="mt-1 text-muted">{tr("Hints are available. Using one means this attempt still counts as evidence, but not as an independent attempt.")}</p>
             )}
             {hintsShown < activity.hints.length && (
               <Button size="sm" className="mt-2" onClick={() => (hintsShown === 0 ? setConfirmHint(true) : showHint())}>
-                <Lightbulb size={14} aria-hidden /> {hintsShown === 0 ? t.practice.showHint : "Show another hint"}
+                <Lightbulb size={14} aria-hidden /> {hintsShown === 0 ? tr(t.practice.showHint) : tr("Show another hint")}
               </Button>
             )}
           </section>
           <section>
-            <h3 className="font-semibold text-fg">Solution</h3>
+            <h3 className="font-semibold text-fg">{tr("Solution")}</h3>
             {solutionRevealed ? (
               <p className="mt-1 rounded-lg border border-warn/30 bg-warn-bg p-3 text-fg">{activity.solution}</p>
             ) : (
               <>
-                <p className="mt-1 text-muted">Revealing a solution makes this attempt practice-only: it stays in your history but does not count toward mastery.</p>
+                <p className="mt-1 text-muted">{tr("Revealing a solution makes this attempt practice-only: it stays in your history but does not count toward mastery.")}</p>
                 <Button size="sm" variant="subtle" className="mt-2" onClick={() => setConfirmReveal(true)}>
-                  {t.practice.revealSolution}
+                  {tr(t.practice.revealSolution)}
                 </Button>
               </>
             )}
@@ -428,23 +433,23 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
       <Dialog
         open={confirmHint}
         onOpenChange={setConfirmHint}
-        title="Use a hint?"
-        description="This attempt will still count as evidence, but not as an independent attempt. Each skill needs at least one independent context."
-        footer={<><Button variant="ghost" onClick={() => setConfirmHint(false)}>Cancel</Button><Button variant="primary" onClick={showHint}>Show hint</Button></>}
+        title={tr("Use a hint?")}
+        description={tr("This attempt will still count as evidence, but not as an independent attempt. Each skill needs at least one independent context.")}
+        footer={<><Button variant="ghost" onClick={() => setConfirmHint(false)}>{tr("Cancel")}</Button><Button variant="primary" onClick={showHint}>{tr("Show hint")}</Button></>}
       />
       <Dialog
         open={confirmReveal}
         onOpenChange={setConfirmReveal}
-        title="Reveal a solution?"
-        description="This attempt will become practice-only and will not count toward mastery. You can still submit it to see feedback."
-        footer={<><Button variant="ghost" onClick={() => setConfirmReveal(false)}>Cancel</Button><Button variant="primary" onClick={reveal}>Reveal solution</Button></>}
+        title={tr("Reveal a solution?")}
+        description={tr("This attempt will become practice-only and will not count toward mastery. You can still submit it to see feedback.")}
+        footer={<><Button variant="ghost" onClick={() => setConfirmReveal(false)}>{tr("Cancel")}</Button><Button variant="primary" onClick={reveal}>{tr("Reveal solution")}</Button></>}
       />
       <Dialog
         open={confirmReset}
         onOpenChange={setConfirmReset}
-        title="Reset this activity?"
-        description="Your unfinished response for this activity will be cleared. Submitted attempts stay in your history."
-        footer={<><Button variant="ghost" onClick={() => setConfirmReset(false)}>Cancel</Button><Button variant="danger" onClick={reset}>Reset response</Button></>}
+        title={tr("Reset this activity?")}
+        description={tr("Your unfinished response for this activity will be cleared. Submitted attempts stay in your history.")}
+        footer={<><Button variant="ghost" onClick={() => setConfirmReset(false)}>{tr("Cancel")}</Button><Button variant="danger" onClick={reset}>{tr("Reset response")}</Button></>}
       />
     </div>
   );
@@ -460,19 +465,20 @@ function ColumnTag({ n, children, pulse }: { n: number; children: React.ReactNod
 }
 
 export function LockedActivity({ activity, pathId, returnHref }: { activity: Activity; pathId: string; returnHref: string }) {
+  const { tr } = useI18n();
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
       <div className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-raised text-muted"><Lock size={20} aria-hidden /></span>
         <h1 className="mt-4 text-2xl font-semibold tracking-tight text-fg">{activity.title}</h1>
-        <p className="mt-1 text-sm text-muted">{activity.contextLabel} · about {activity.estimatedMinutes} min</p>
+        <p className="mt-1 text-sm text-muted">{activity.contextLabel} · {tr("about {n} min", { n: activity.estimatedMinutes })}</p>
         <p className="mt-4 text-sm leading-relaxed text-fg">{activity.scenario}</p>
-        <Notice tone="accent" className="mt-6" title={t.access.locked}>
-          This activity is part of the subscription. Free samples are marked in the path, and your progress on them is kept when you subscribe.
+        <Notice tone="accent" className="mt-6" title={tr(t.access.locked)}>
+          {tr("This activity is part of the subscription. Free samples are marked in the path, and your progress on them is kept when you subscribe.")}
         </Notice>
         <div className="mt-6 flex flex-wrap gap-2">
-          <LinkButton href={`/subscribe?return=${encodeURIComponent(returnHref)}`} variant="primary">Review subscription</LinkButton>
-          <LinkButton href={`/paths/${pathId}`} variant="ghost">Back to path</LinkButton>
+          <LinkButton href={`/subscribe?return=${encodeURIComponent(returnHref)}`} variant="primary">{tr("Review subscription")}</LinkButton>
+          <LinkButton href={`/paths/${pathId}`} variant="ghost">{tr("Back to path")}</LinkButton>
         </div>
       </div>
     </div>

@@ -1,4 +1,7 @@
 import { BadgeCheck, Eye, PenLine, Search, ShieldCheck, type LucideIcon } from "lucide-react";
+"use client";
+
+import { useI18n } from "@/i18n";
 import type { SkillProgress } from "@/domain/mastery";
 import { cn } from "./ui";
 
@@ -20,11 +23,12 @@ const GAP = 8;
  * Hints-assisted contexts are drawn lighter. This is not a percentage.
  */
 export function SkillRing({ index, progress, size = 72, className, animateNew }: { index: number; progress: SkillProgress; size?: number; className?: string; animateNew?: boolean }) {
+  const { tr } = useI18n();
   const n = Math.max(1, progress.requiredContexts);
   const seg = CIRC / n - GAP;
   const hue = skillHue(index);
   const met = Math.min(progress.contextsMet.length, n);
-  const label = `${met} of ${n} contexts met${progress.independentContexts > 0 ? ", including an independent attempt" : ""}`;
+  const label = progress.independentContexts > 0 ? tr("{n} of {m} contexts met, including an independent attempt", { n: met, m: n }) : tr("{n} of {m} contexts met", { n: met, m: n });
   return (
     <span className={cn("relative inline-block shrink-0", className)} style={{ width: size, height: size, color: hue }} role="img" aria-label={label}>
       <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden>

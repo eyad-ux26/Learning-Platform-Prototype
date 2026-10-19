@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, Settings2, UserRound, LineChart, AlertTriangle, Volume2, VolumeX } from "lucide-react";
 import { accessLabel, isSubscriptionActive } from "@/domain/access";
 import { t, PRODUCT_NAME } from "@/i18n/en";
+import { useI18n } from "@/i18n";
 import { useApp } from "@/state/AppState";
 import { Badge, Button, cn } from "@/components/ui";
 import { LanguageSwitch } from "./LanguageSwitch";
@@ -17,6 +18,7 @@ const NAV = [
 
 export function LearnerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { tr, L } = useI18n();
   const { learner, loadStatus, dismissLoadStatus, dispatch } = useApp();
   const soundOn = learner.preferences.sound !== false;
   const subscribed = isSubscriptionActive(learner.access);
@@ -26,7 +28,7 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-ink">
-        {t.nav.skip}
+        {tr(t.nav.skip)}
       </a>
       <header className="sticky top-0 z-40 border-b border-line bg-[#15151a]/95 backdrop-blur supports-[backdrop-filter]:bg-[#15151a]/85">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
@@ -37,7 +39,7 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
             </span>
             <span>{PRODUCT_NAME}</span>
           </Link>
-          <nav aria-label="Main" className="ms-2 hidden items-center gap-1 md:flex">
+          <nav aria-label={tr("Main")} className="ms-2 hidden items-center gap-1 md:flex">
             {NAV.map(({ href, label, match }) => (
               <Link
                 key={href}
@@ -45,7 +47,7 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
                 aria-current={match(pathname) ? "page" : undefined}
                 className={cn("rounded-xl px-3 py-2 text-sm font-medium", match(pathname) ? "bg-brand-deep text-white" : "text-muted hover:text-fg")}
               >
-                {label}
+                {tr(label)}
               </Link>
             ))}
           </nav>
@@ -54,21 +56,21 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => dispatch({ type: "setPreferences", prefs: { sound: !soundOn } })}
-              aria-label={soundOn ? "Turn sound off" : "Turn sound on"}
+              aria-label={soundOn ? tr("Turn sound off") : tr("Turn sound on")}
               aria-pressed={soundOn}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-raised text-muted hover:text-fg"
             >
               {soundOn ? <Volume2 size={17} aria-hidden /> : <VolumeX size={17} aria-hidden />}
             </button>
             <Link href={subscribed ? "/account" : "/subscribe"} className="hidden sm:block">
-              <Badge tone={subscribed ? "ok" : learner.access.plan === "expired" ? "warn" : "neutral"}>{accessLabel(learner.access)}</Badge>
+              <Badge tone={subscribed ? "ok" : learner.access.plan === "expired" ? "warn" : "neutral"}>{L(accessLabel(learner.access))}</Badge>
             </Link>
             {learner.role !== "learner" && (
               <Link href="/admin" className="hidden rounded-lg border border-line-strong px-3 py-1.5 text-sm text-fg hover:bg-raised sm:inline-flex">
-                {t.nav.admin}
+                {tr(t.nav.admin)}
               </Link>
             )}
-            <Link href="/account" className="flex h-10 w-10 items-center justify-center rounded-full bg-sk-amber text-sm font-bold text-[#2b1f00]" aria-label={`Account: ${learner.name}`}>
+            <Link href="/account" className="flex h-10 w-10 items-center justify-center rounded-full bg-sk-amber text-sm font-bold text-[#2b1f00]" aria-label={tr("Account: {name}", { name: learner.name })}>
               {learner.name.split(" ").map((p) => p[0]).join("").slice(0, 2)}
             </Link>
           </div>
@@ -80,12 +82,12 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-2 text-sm sm:px-6">
             <AlertTriangle size={16} className="text-warn" aria-hidden />
             <span className="text-fg">
-              {loadStatus === "recovered-invalid" && "Saved prototype data in this browser could not be read, so demo data was reset. A copy of the unreadable data was kept."}
-              {loadStatus === "unavailable" && "Browser storage is unavailable. The prototype works, but progress will not survive a refresh."}
-              {loadStatus === "content-refreshed" && "The prototype content was updated, so local demo data was reset to the new seed."}
+              {loadStatus === "recovered-invalid" && tr("Saved prototype data in this browser could not be read, so demo data was reset. A copy of the unreadable data was kept.")}
+              {loadStatus === "unavailable" && tr("Browser storage is unavailable. The prototype works, but progress will not survive a refresh.")}
+              {loadStatus === "content-refreshed" && tr("The prototype content was updated, so local demo data was reset to the new seed.")}
             </span>
             <Button size="sm" variant="ghost" onClick={dismissLoadStatus} className="ms-auto">
-              Dismiss
+              {tr("Dismiss")}
             </Button>
           </div>
         </div>
@@ -97,19 +99,19 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
 
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-xs text-subtle sm:px-6">
-          <span>{t.product.prototypeNote}</span>
+          <span>{tr(t.product.prototypeNote)}</span>
           <Link href="/demo" className="ms-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 hover:text-fg">
-            <Settings2 size={13} aria-hidden /> {t.nav.demo}
+            <Settings2 size={13} aria-hidden /> {tr(t.nav.demo)}
           </Link>
         </div>
       </footer>
 
       {/* Mobile bottom navigation */}
-      {!inWorkspace && <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-line bg-[#15151a]/95 md:hidden">
+      {!inWorkspace && <nav aria-label={tr("Main")} className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-line bg-[#15151a]/95 md:hidden">
         {NAV.map(({ href, label, icon: Icon, match }) => (
           <Link key={href} href={href} aria-current={match(pathname) ? "page" : undefined} className={cn("flex min-h-14 flex-col items-center justify-center gap-0.5 font-mono text-[11px]", match(pathname) ? "text-accent" : "text-subtle")}>
             <Icon size={18} aria-hidden />
-            {label}
+            {tr(label)}
           </Link>
         ))}
       </nav>}
