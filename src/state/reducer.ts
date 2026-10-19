@@ -21,6 +21,7 @@ export type Action =
   | { type: "cancelSubscription"; now: string }
   | { type: "resumeSubscription" }
   | { type: "setPreferences"; prefs: Partial<LearnerPreferences> }
+  | { type: "setLanguage"; language: "en" | "ar" }
   | { type: "setRole"; learnerId: string; role: Role }
   | { type: "setDirectoryOverride"; userId: string; role?: Role; plan?: AccessState["plan"] }
   | { type: "catalog/saveDraft"; pathId: string; bundle: PathBundle; now: string }
@@ -106,6 +107,9 @@ export function reducer(state: PrototypeState, action: Action): PrototypeState {
       return updateLearner(state, me, (l) => (l.access.plan === "subscriber" ? { ...l, access: { ...l.access, cancelAtPeriodEnd: false } } : l));
     case "setPreferences":
       return updateLearner(state, me, (l) => ({ ...l, preferences: { ...l.preferences, ...action.prefs } }));
+    case "setLanguage":
+      // A device-level choice: it follows the learner switcher in the demo controls.
+      return { ...state, learners: Object.fromEntries(Object.entries(state.learners).map(([id, l]) => [id, { ...l, preferences: { ...l.preferences, language: action.language } }])) };
     case "setRole":
       return updateLearner(state, action.learnerId, (l) => ({ ...l, role: action.role }));
     case "setDirectoryOverride":

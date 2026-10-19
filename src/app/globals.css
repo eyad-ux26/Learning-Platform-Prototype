@@ -5,9 +5,9 @@
  * Product previews inside activities use the light "pv-" tokens so they read as real apps.
  */
 @theme {
-  --font-sans: "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-  --font-display: "Bricolage Grotesque Variable", "Bricolage Grotesque", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans: "Geist Variable", "Geist", "Noto Sans Arabic Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Bricolage Grotesque", "Noto Kufi Arabic Variable", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", "Noto Sans Arabic Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   /* Canvas Mode: a design-tool canvas. Violet = brand and selection, amber = reward, skills have their own hues. */
   --color-canvas: #101014;
@@ -128,3 +128,14 @@ mark.src-hl {
   border-radius: 3px;
   padding: 0 2px;
 }
+
+/* Arabic: letter-spacing breaks joined letters, and directional icons point the other way. */
+[lang="ar"] * { letter-spacing: normal !important; }
+[lang="ar"] body { line-height: 1.7; }
+[dir="rtl"] .lucide-arrow-right,
+[dir="rtl"] .lucide-arrow-left,
+[dir="rtl"] .lucide-chevron-right,
+[dir="rtl"] .lucide-chevron-left,
+[dir="rtl"] .lucide-undo-2,
+[dir="rtl"] .lucide-corner-down-right,
+[dir="rtl"] .lucide-send { transform: scaleX(-1); }

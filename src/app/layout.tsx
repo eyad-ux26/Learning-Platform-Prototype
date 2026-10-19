@@ -5,6 +5,8 @@ import { PRODUCT_NAME } from "@/i18n/en";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
 import "@fontsource-variable/bricolage-grotesque";
+import "@fontsource-variable/noto-sans-arabic";
+import "@fontsource-variable/noto-kufi-arabic";
 import "./globals.css";
 
 export const metadata: Metadata = {

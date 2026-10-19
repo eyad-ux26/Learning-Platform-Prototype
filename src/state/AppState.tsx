@@ -12,6 +12,8 @@ import type { PrototypeState } from "@/persistence/state";
 import { Spinner } from "@/components/ui";
 import { setSoundEnabled } from "@/components/sfx";
 import { reducer, type Action } from "./reducer";
+import "@/i18n/ar";
+import { dirOf, localizeDeep, type Locale } from "@/i18n/core";
 
 interface AppContextValue {
   state: PrototypeState;
@@ -61,6 +63,9 @@ export function AppProvider({ children, repository }: { children: ReactNode; rep
     if (!learner) return;
     document.documentElement.dataset.reducedMotion = String(learner.preferences.reducedMotion);
     setSoundEnabled(learner.preferences.sound !== false);
+    const lang = learner.preferences.language === "ar" ? "ar" : "en";
+    document.documentElement.lang = lang;
+    document.documentElement.dir = dirOf(lang);
   }, [learner]);
 
   const submit = useCallback<AppContextValue["submit"]>(({ bundle, version, activity, response, hintsUsed, solutionRevealed }) => {
@@ -121,7 +126,10 @@ export function useApp(): AppContextValue {
 export interface PathView {
   entry: CatalogEntry;
   version: PublishedVersion;
+  /** Content as shown to the learner: Arabic when that language is selected. */
   bundle: PathBundle;
+  /** The stored English content. Assessment and persistence always use this. */
+  rawBundle: PathBundle;
   latestVersion: number;
   enrolledVersion?: number;
   visible: boolean;
@@ -133,7 +141,7 @@ export interface PathView {
   pathAttempts: Attempt[];
 }
 
-export function getPathView(state: PrototypeState, learner: LearnerRecord, pathId: string, override?: { bundle: PathBundle; version: number }): PathView | undefined {
+export function getPathView(state: PrototypeState, learner: LearnerRecord, pathId: string, override?: { bundle: PathBundle; version: number }, localize = false): PathView | undefined {
   const entry = state.catalog.entries[pathId];
   if (!entry) return undefined;
   const enrollment = learner.enrollments[pathId];
@@ -146,29 +154,35 @@ export function getPathView(state: PrototypeState, learner: LearnerRecord, pathI
   const pathEvidence = learner.evidence.filter((e) => ids.has(e.activityId));
   const progress: Record<string, SkillProgress> = {};
   for (const s of bundle.skills) progress[s.id] = deriveSkillProgress(s.id, pathEvidence);
+  const locale: Locale = localize && learner.preferences.language === "ar" ? "ar" : "en";
+  const L = <T,>(v: T) => localizeDeep(v, locale);
+  const completion = derivePathCompletion(bundle, pathEvidence);
+  const localProgress: Record<string, SkillProgress> = {};
+  for (const [id, p] of Object.entries(progress)) localProgress[id] = L(p);
   return {
     entry,
-    version,
-    bundle,
+    version: locale === "en" ? version : { ...version, bundle: L(bundle) },
+    bundle: L(bundle),
+    rawBundle: bundle,
     latestVersion: entry.versions[entry.versions.length - 1]?.version ?? 0,
     enrolledVersion: enrollment?.contentVersion,
     visible: isLearnerVisible(entry),
     canAccess: (id) => canAccessActivity(learner.access, bundle.meta, id),
     canAccessConcept: (c) => canAccessConcept(learner.access, c),
-    progress,
-    completion: derivePathCompletion(bundle, pathEvidence),
+    progress: localProgress,
+    completion: L(completion),
     pathEvidence,
-    pathAttempts: learner.attempts.filter((a) => a.pathId === pathId),
+    pathAttempts: learner.attempts.filter((a) => a.pathId === pathId).map((a) => (locale === "en" ? a : { ...a, evaluation: L(a.evaluation) })),
   };
 }
 
 export function usePathView(pathId: string) {
   const { state, learner } = useApp();
-  return useMemo(() => getPathView(state, learner, pathId), [state, learner, pathId]);
+  return useMemo(() => getPathView(state, learner, pathId, undefined, true), [state, learner, pathId]);
 }
 
 export function visibleLibrary(state: PrototypeState, learner: LearnerRecord): PathView[] {
   return state.catalog.order
-    .map((id) => getPathView(state, learner, id))
+    .map((id) => getPathView(state, learner, id, undefined, true))
     .filter((v): v is PathView => !!v && v.visible);
 }

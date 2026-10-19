@@ -7,6 +7,7 @@ import { accessLabel, isSubscriptionActive } from "@/domain/access";
 import { t, PRODUCT_NAME } from "@/i18n/en";
 import { useApp } from "@/state/AppState";
 import { Badge, Button, cn } from "@/components/ui";
+import { LanguageSwitch } from "./LanguageSwitch";
 
 const NAV = [
   { href: "/", label: t.nav.home, icon: LayoutDashboard, match: (p: string) => p === "/" || p.startsWith("/paths") },
@@ -49,6 +50,7 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
           <div className="ms-auto flex items-center gap-2">
+            <LanguageSwitch />
             <button
               type="button"
               onClick={() => dispatch({ type: "setPreferences", prefs: { sound: !soundOn } })}
