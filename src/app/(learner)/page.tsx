@@ -7,7 +7,8 @@ import { FLAGSHIP_ID } from "@/content/flagship";
 import { recommendNext } from "@/domain/recommend";
 import { t } from "@/i18n/en";
 import { useApp, visibleLibrary } from "@/state/AppState";
-import { Badge, Button, Card, EmptyState, LinkButton, SectionHeading, inputClass } from "@/components/ui";
+import { Badge, Button, EmptyState, Frame, Handles, LinkButton, SectionHeading, inputClass } from "@/components/ui";
+import { CountRing } from "@/components/SkillRing";
 import { PathCard, pathProgressState, type ProgressState } from "@/learner/PathCard";
 
 export default function HomePage() {
@@ -46,60 +47,62 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
-      <section aria-labelledby="welcome" className="max-w-3xl">
-        <p className="text-sm text-subtle">{isNew ? `Welcome, ${firstName}` : `Welcome back, ${firstName}`}</p>
-        <h1 id="welcome" className="mt-1 text-3xl font-semibold tracking-tight text-fg sm:text-4xl">Build design skills by making real decisions.</h1>
-        <p className="mt-3 text-base leading-relaxed text-muted">
-          Each path lists the skills you need to demonstrate. Explore short explanations when you want them, or go straight to practice. A path is complete when you have shown every skill in practice, not when you have watched everything.
-        </p>
-      </section>
-
-      {/* Continue + recommended */}
-      <div className="mt-8 grid gap-4 lg:grid-cols-2">
-        {resume && (
-          <Card className="p-5" as="section" aria-labelledby="continue">
-            <p id="continue" className="text-xs font-semibold uppercase tracking-wide text-subtle">Continue learning</p>
-            <p className="mt-2 text-lg font-semibold text-fg">{resume.label}</p>
-            <p className="mt-1 text-sm text-muted">Unfinished response saved {new Date(resume.at).toLocaleString()}.</p>
-            <LinkButton href={resume.href} variant="primary" className="mt-4">
-              <PlayCircle size={16} aria-hidden /> Resume activity
-            </LinkButton>
-          </Card>
-        )}
-        {flagship && (
-          <Card className="p-5" as="section" aria-labelledby="recommended">
-            <p id="recommended" className="text-xs font-semibold uppercase tracking-wide text-subtle">Recommended next</p>
-            {rec?.type === "activity" && recActivity ? (
-              <>
-                <p className="mt-2 text-lg font-semibold text-fg">{recActivity.title}</p>
-                <p className="mt-1 text-sm text-muted">
-                  {flagship.bundle.meta.title} · {isNew ? "A good first activity. It is a free sample and assesses all four skills." : rec.reason}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <LinkButton href={`/paths/${FLAGSHIP_ID}/practice/${recActivity.id}`} variant={resume ? "secondary" : "primary"}>
-                    {rec.locked && <Lock size={15} aria-hidden />} {isNew ? "Start practising" : "Start activity"} <ArrowRight size={15} aria-hidden />
-                  </LinkButton>
-                  <LinkButton href={`/paths/${FLAGSHIP_ID}`} variant="ghost">Path overview</LinkButton>
-                </div>
-              </>
-            ) : rec?.type === "complete" ? (
-              <>
-                <p className="mt-2 text-lg font-semibold text-fg">You completed {flagship.bundle.meta.title}</p>
-                <p className="mt-1 text-sm text-muted">Every required skill is Mastered. The other paths are previews in this prototype.</p>
-              </>
-            ) : rec?.type === "review" ? (
-              <>
-                <p className="mt-2 text-lg font-semibold text-fg">Review and retry</p>
-                <p className="mt-1 text-sm text-muted">{rec.reason}</p>
-                <LinkButton href={`/paths/${FLAGSHIP_ID}/skills`} className="mt-4">See skill progress</LinkButton>
-              </>
-            ) : null}
-          </Card>
-        )}
-      </div>
+      <Frame name="Frame · Today" className="mt-6">
+        <Handles className="rounded-[28px] bg-brand p-6 sm:p-10">
+          <div className="grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:items-center">
+            <section aria-labelledby="welcome">
+              <p className="font-mono text-xs font-semibold text-[#d4cfff]">{isNew ? `Welcome, ${firstName}` : `Welcome back, ${firstName}`}</p>
+              <h1 id="welcome" className="mt-3 text-4xl font-extrabold leading-[1.02] tracking-tight text-white sm:text-5xl lg:text-6xl">Learn by making real design calls.</h1>
+              <p className="mt-4 max-w-md text-base text-[#e4e0ff]">A path is done when you have shown every skill, not when you have watched everything.</p>
+            </section>
+            <div className="flex flex-col gap-4">
+              {resume && (
+                <section aria-labelledby="continue" className="rounded-[22px] bg-white p-5 text-[#17152e]">
+                  <p id="continue" className="font-mono text-xs font-semibold text-[#5a5680]">Continue</p>
+                  <p className="mt-1 text-lg font-bold">{resume.label}</p>
+                  <p className="mt-0.5 text-sm text-[#5a5680]">Unfinished response saved {new Date(resume.at).toLocaleString()}.</p>
+                  <LinkButton href={resume.href} variant="primary" className="mt-3"><PlayCircle size={16} aria-hidden /> Resume activity</LinkButton>
+                </section>
+              )}
+              {flagship && (
+                <section aria-labelledby="recommended" className="rounded-[22px] bg-white p-5 text-[#17152e]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p id="recommended" className="font-mono text-xs font-semibold text-[#5a5680]">Recommended next</p>
+                      {rec?.type === "activity" && recActivity ? (
+                        <>
+                          <p className="mt-1 text-lg font-bold leading-snug">{recActivity.title}</p>
+                          <p className="mt-0.5 text-sm text-[#5a5680]">{flagship.bundle.meta.title} · {isNew ? "Free sample · covers all four skills" : rec.reason}</p>
+                        </>
+                      ) : rec?.type === "complete" ? (
+                        <p className="mt-1 text-lg font-bold">You completed {flagship.bundle.meta.title}</p>
+                      ) : rec?.type === "review" ? (
+                        <>
+                          <p className="mt-1 text-lg font-bold">Review and retry</p>
+                          <p className="mt-0.5 text-sm text-[#5a5680]">{rec.reason}</p>
+                        </>
+                      ) : null}
+                    </div>
+                    <CountRing value={flagship.completion.mastered.length} max={flagship.bundle.requiredSkillIds.length} size={52} label={`${flagship.completion.mastered.length} of ${flagship.bundle.requiredSkillIds.length} skills mastered`} className="[&_circle:first-child]:stroke-[#e4e0ff] [&_span]:text-[#17152e]" />
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {rec?.type === "activity" && recActivity && (
+                      <LinkButton href={`/paths/${FLAGSHIP_ID}/practice/${recActivity.id}`} variant="primary">
+                        {rec.locked && <Lock size={15} aria-hidden />} {isNew ? "Start practising" : "Start activity"} <ArrowRight size={15} aria-hidden />
+                      </LinkButton>
+                    )}
+                    {rec?.type === "review" && <LinkButton href={`/paths/${FLAGSHIP_ID}/skills`} variant="primary">See skill progress</LinkButton>}
+                    <LinkButton href={`/paths/${FLAGSHIP_ID}`} variant="ghost" className="!text-[#4f46e5] hover:!bg-[#eeedff]">Path overview</LinkButton>
+                  </div>
+                </section>
+              )}
+            </div>
+          </div>
+        </Handles>
+      </Frame>
 
       {/* Library */}
-      <section aria-labelledby="library" className="mt-12">
+      <section aria-labelledby="library" className="mt-14">
         <SectionHeading id="library" title="Learning library" eyebrow={`${library.length} paths`} />
         <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-end">
           <div className="relative flex-1">

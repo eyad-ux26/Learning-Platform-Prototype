@@ -15,7 +15,7 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "subtle";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-accent-ink hover:bg-accent-strong font-semibold",
+  primary: "bg-brand text-white hover:bg-brand-strong font-semibold shadow-[0_2px_0_0_rgba(0,0,0,0.35)]",
   secondary: "bg-raised text-fg border border-line-strong hover:bg-overlay",
   ghost: "text-muted hover:text-fg hover:bg-raised",
   subtle: "bg-surface text-fg border border-line hover:border-line-strong",
@@ -28,7 +28,7 @@ const sizes: Record<Size, string> = {
 };
 
 export const buttonClass = (variant: Variant = "secondary", size: Size = "md", extra?: string) =>
-  cn("inline-flex items-center justify-center rounded-lg transition-colors disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap", variants[variant], sizes[size], extra);
+  cn("inline-flex items-center justify-center rounded-xl transition-[transform,background-color,border-color] active:translate-y-px disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap", variants[variant], sizes[size], extra);
 
 export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size }>(
   function Button({ variant = "secondary", size = "md", className, type = "button", ...props }, ref) {
@@ -42,6 +42,41 @@ export function LinkButton({ href, variant = "secondary", size = "md", className
       {children}
     </Link>
   );
+}
+
+// ---------- Canvas primitives ----------
+
+/** A frame on the canvas: mono name tag above, optional numbered badge, optional selection handles. */
+export function Frame({ name, n, active, children, className, tagClassName }: { name: string; n?: number; active?: boolean; children: ReactNode; className?: string; tagClassName?: string }) {
+  return (
+    <div className={cn("relative", className)}>
+      <div className={cn("absolute -top-6 start-0 flex items-center gap-2 font-mono text-xs font-semibold text-accent", tagClassName)}>
+        {n !== undefined && (
+          <span className={cn("flex h-5 w-5 items-center justify-center rounded-full bg-brand-strong text-[11px] text-white", active && "animate-pulse-ring")} aria-hidden>
+            {n}
+          </span>
+        )}
+        {name}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Corner selection handles, as when a layer is selected in a design tool. Decorative. */
+export function Handles({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("handles", className)}>
+      {(["tl", "tr", "bl", "br"] as const).map((c) => (
+        <span key={c} aria-hidden className={cn("handle", c)} />
+      ))}
+      {children}
+    </div>
+  );
+}
+
+export function Kbd({ children, className }: { children: ReactNode; className?: string }) {
+  return <kbd className={cn("rounded-md border border-line-strong px-1.5 font-mono text-[11px] font-semibold text-subtle", className)}>{children}</kbd>;
 }
 
 // ---------- Surfaces ----------
@@ -59,7 +94,7 @@ export function SectionHeading({ title, eyebrow, action, level = 2, id }: { titl
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
-        {eyebrow && <p className="mb-1 text-xs font-semibold uppercase tracking-[0.08em] text-subtle">{eyebrow}</p>}
+        {eyebrow && <p className="mb-1 font-mono text-xs font-semibold text-accent">{eyebrow}</p>}
         <H id={id} className={cn("font-semibold tracking-tight text-fg", level === 1 ? "text-2xl sm:text-3xl" : level === 2 ? "text-lg sm:text-xl" : "text-base")}>
           {title}
         </H>
@@ -137,7 +172,7 @@ export function Dialog({
         <RDialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
         <RDialog.Content
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-line-strong bg-raised p-6 shadow-2xl animate-rise",
+            "fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl border border-line-strong bg-raised p-6 shadow-2xl animate-rise",
             wide ? "max-w-2xl" : "max-w-md",
           )}
         >
@@ -206,7 +241,7 @@ export function Field({ label, hint, children, htmlFor }: { label: string; hint?
 }
 
 export const inputClass =
-  "w-full rounded-lg border border-line-strong bg-canvas px-3 py-2.5 text-sm text-fg placeholder:text-subtle focus-visible:outline-2 focus-visible:outline-accent";
+  "w-full rounded-xl border border-line-strong bg-canvas px-3 py-2.5 text-sm text-fg placeholder:text-subtle focus-visible:outline-2 focus-visible:outline-accent";
 
 export function Spinner({ label = "Loading" }: { label?: string }) {
   return (

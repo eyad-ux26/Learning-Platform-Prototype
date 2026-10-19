@@ -5,29 +5,39 @@
  * Product previews inside activities use the light "pv-" tokens so they read as real apps.
  */
 @theme {
-  --font-sans: "Inter", "Segoe UI", ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans: "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Bricolage Grotesque", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-  --color-canvas: #0c0e12;
-  --color-surface: #13161c;
-  --color-raised: #191d25;
-  --color-overlay: #1f2430;
-  --color-line: #252b36;
-  --color-line-strong: #343c4b;
-  --color-fg: #e9ecf1;
-  --color-muted: #a3acba;
-  --color-subtle: #7d8796;
-  --color-accent: #8fb3ff;
-  --color-accent-strong: #b5ccff;
-  --color-accent-ink: #0b1630;
-  --color-ok: #6fcf9b;
-  --color-ok-bg: #12291f;
-  --color-warn: #e8bd6a;
-  --color-warn-bg: #2d2412;
-  --color-bad: #f08a8a;
-  --color-bad-bg: #321717;
-  --color-ai: #c3a6ff;
-  --color-ai-bg: #231c38;
+  /* Canvas Mode: a design-tool canvas. Violet = brand and selection, amber = reward, skills have their own hues. */
+  --color-canvas: #101014;
+  --color-surface: #18181e;
+  --color-raised: #1c1c23;
+  --color-overlay: #24242d;
+  --color-line: #2c2c36;
+  --color-line-strong: #3a3a46;
+  --color-fg: #f2f1f7;
+  --color-muted: #b0afc0;
+  --color-subtle: #8c8b9e;
+  --color-accent: #b3aaff;
+  --color-accent-strong: #d4cfff;
+  --color-accent-ink: #ffffff;
+  --color-brand: #6a5cf0;
+  --color-brand-strong: #7b6cff;
+  --color-brand-deep: #2e2763;
+  --color-ok: #5ee0a8;
+  --color-ok-bg: #15281f;
+  --color-warn: #ffc94d;
+  --color-warn-bg: #2a2312;
+  --color-bad: #ff9d82;
+  --color-bad-bg: #2a1b16;
+  --color-ai: #c9c3ff;
+  --color-ai-bg: #2e2763;
+
+  --color-sk-sky: #5cc8ff;
+  --color-sk-amber: #ffc94d;
+  --color-sk-mint: #5ee0a8;
+  --color-sk-coral: #ff7d5c;
 
   --color-pv-bg: #f6f7f9;
   --color-pv-surface: #ffffff;
@@ -45,7 +55,7 @@
   --color-pv-ok-bg: #e5f6ed;
   --color-pv-info-bg: #e8f0ff;
 
-  --radius-card: 14px;
+  --radius-card: 22px;
   --animate-rise: rise 180ms ease-out;
 }
 
@@ -57,12 +67,35 @@
 html { color-scheme: dark; }
 
 body {
-  background: var(--color-canvas);
+  background-color: var(--color-canvas);
+  background-image: radial-gradient(#26262f 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
   color: var(--color-fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: "cv11", "ss01";
 }
+
+h1, h2 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Canvas identity: frame name tags, selection handles, key caps. */
+.handles { position: relative; outline: 1.5px solid var(--color-accent); outline-offset: 4px; }
+.handles > .handle { position: absolute; width: 10px; height: 10px; background: #fff; border: 1.5px solid var(--color-brand-strong); }
+.handles > .handle.tl { left: -9px; top: -9px; } .handles > .handle.tr { right: -9px; top: -9px; }
+.handles > .handle.bl { left: -9px; bottom: -9px; } .handles > .handle.br { right: -9px; bottom: -9px; }
+
+@keyframes ringfill { from { stroke-dashoffset: 80; } to { stroke-dashoffset: 0; } }
+@keyframes pop { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: none; } }
+@keyframes stamp { from { opacity: 0; transform: rotate(-8deg) scale(1.8); } to { opacity: 1; transform: rotate(-8deg) scale(1); } }
+@keyframes pulse-ring { 0%, 100% { box-shadow: 0 0 0 0 rgba(123, 108, 255, 0.7); } 50% { box-shadow: 0 0 0 8px rgba(123, 108, 255, 0); } }
+@keyframes sel-snap { from { outline-offset: 14px; } to { outline-offset: 4px; } }
+.animate-pop { animation: pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.animate-stamp { animation: stamp 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) 0.2s both; }
+.animate-pulse-ring { animation: pulse-ring 1.6s ease-in-out infinite; }
+.sel-snap { animation: sel-snap 0.55s cubic-bezier(0.2, 1.2, 0.4, 1); }
+.ring-seg-new { animation: ringfill 0.9s ease-out 0.4s both; }
 
 :focus-visible {
   outline: 2px solid var(--color-accent);
@@ -70,7 +103,7 @@ body {
   border-radius: 6px;
 }
 
-::selection { background: #2e4a86; }
+::selection { background: #4a3fb8; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

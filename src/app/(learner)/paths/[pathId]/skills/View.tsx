@@ -8,7 +8,8 @@ import { skillsAssessedBy } from "@/domain/assessment";
 import { recommendNext } from "@/domain/recommend";
 import { t } from "@/i18n/en";
 import { usePathView } from "@/state/AppState";
-import { EvidenceMeter, SkillStatusBadge } from "@/components/SkillStatus";
+import { SkillStatusBadge } from "@/components/SkillStatus";
+import { SkillRing } from "@/components/SkillRing";
 import { Badge, Card, EmptyState, LinkButton, Notice, SectionHeading } from "@/components/ui";
 import { Unavailable } from "@/learner/Unavailable";
 
@@ -26,7 +27,7 @@ export function SkillsPage({ params }: { params?: Record<string, string> } = {})
       <nav aria-label="Breadcrumb" className="text-sm text-subtle">
         <Link href={`/paths/${pathId}`} className="hover:text-fg">{bundle.meta.title}</Link> <span aria-hidden>/</span> <span className="text-muted">Skills and evidence</span>
       </nav>
-      <h1 className="mt-3 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">Skills and evidence</h1>
+      <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-fg sm:text-4xl">Skills and evidence</h1>
 
       {!isPreviewPath && (
         <Notice tone={view.completion.complete ? "ok" : "neutral"} className="mt-5" icon={view.completion.complete ? <CheckCircle2 size={16} /> : <CircleAlert size={16} />} title={view.completion.complete ? "Path complete" : "Path not complete yet"}>
@@ -36,7 +37,7 @@ export function SkillsPage({ params }: { params?: Record<string, string> } = {})
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
-          {bundle.skills.map((s) => {
+          {bundle.skills.map((s, i) => {
             const p = view.progress[s.id];
             const rec = !isPreviewPath
               ? recommendNext({ bundle: { ...bundle, requiredSkillIds: [s.id] }, evidence: view.pathEvidence, attempts: view.pathAttempts, canAccess: view.canAccess })
@@ -45,8 +46,9 @@ export function SkillsPage({ params }: { params?: Record<string, string> } = {})
             const eligible = bundle.activities.filter((a) => skillsAssessedBy(a, bundle.skills).includes(s.id));
             return (
               <Card key={s.id} className="p-5" as="section" aria-labelledby={`skill-${s.id}`}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <h2 id={`skill-${s.id}`} className="text-base font-semibold text-fg">{s.name}</h2>
+                <div className="flex flex-wrap items-center gap-4">
+                  <SkillRing index={i} progress={p} size={64} />
+                  <h2 id={`skill-${s.id}`} className="min-w-0 flex-1 text-2xl font-extrabold tracking-tight text-fg">{s.name}</h2>
                   <SkillStatusBadge status={p.status} />
                 </div>
                 <p className="mt-1 text-sm text-muted">{s.description}</p>
@@ -59,7 +61,7 @@ export function SkillsPage({ params }: { params?: Record<string, string> } = {})
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Evidence required</p>
                     <p className="mt-1 text-sm text-fg">Criteria met in {p.requiredContexts} different contexts, at least {p.requiredIndependent} without hints or a revealed solution.</p>
-                    <div className="mt-2"><EvidenceMeter progress={p} /></div>
+                    <p className="mt-2 font-mono text-xs text-muted">{Math.min(p.contextsMet.length, p.requiredContexts)} / {p.requiredContexts} contexts · {p.independentContexts} independent</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Evidence collected</p>

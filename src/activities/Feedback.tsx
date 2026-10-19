@@ -4,7 +4,8 @@ import Link from "next/link";
 import { ArrowRight, BookOpen, CheckCircle2, CircleAlert, Copy, Eye, Lock, RotateCcw } from "lucide-react";
 import { recommendNext } from "@/domain/recommend";
 import type { Activity, Attempt, Evaluation } from "@/domain/types";
-import { SkillStatusBadge, EvidenceMeter } from "@/components/SkillStatus";
+import { SkillStatusBadge } from "@/components/SkillStatus";
+import { SkillRing } from "@/components/SkillRing";
 import { Badge, Button, LinkButton, Notice, cn } from "@/components/ui";
 import type { PathView } from "@/state/AppState";
 
@@ -36,16 +37,32 @@ export function FeedbackPanel({
       : undefined;
   const conceptFor = (skillId: string) => bundle.explore.find((c) => c.skillId === skillId);
   const unmetSkills = evaluation.skills.filter((s) => !s.met).map((s) => s.skillId);
+  const allMet = evaluation.skills.every((s) => s.met);
+  /** Authored criterion feedback only. No generated or invented client dialogue. */
+  const reviewNote = (unmet[0] ?? met[0])?.feedback;
 
   return (
     <div className="space-y-6 animate-rise" aria-labelledby="feedback-heading">
-      <div>
-        <h2 id="feedback-heading" tabIndex={-1} className="text-xl font-semibold tracking-tight text-fg">
-          Feedback
+      <div className="rounded-[22px] bg-brand p-5 text-white">
+        <span className={cn("animate-stamp inline-flex items-center gap-2 rounded-lg border-[2.5px] border-white px-3 py-1 font-mono text-sm font-semibold tracking-[0.12em]")}>
+          {allMet ? <CheckCircle2 size={16} aria-hidden /> : <RotateCcw size={16} aria-hidden />}
+          {allMet ? "SHIPPED" : "REOPENED"}
+        </span>
+        <h2 id="feedback-heading" tabIndex={-1} className="mt-3 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
+          {met.length} of {evaluation.criteria.length} criteria met
         </h2>
-        <p className="mt-1 text-sm text-muted">
-          {met.length} of {evaluation.criteria.length} criteria met across {evaluation.skills.length} {evaluation.skills.length === 1 ? "skill" : "skills"}.
+        <p className="mt-1 text-sm text-[#e4e0ff]">
+          Across {evaluation.skills.length} {evaluation.skills.length === 1 ? "skill" : "skills"}. {allMet ? "Nothing to reopen." : "The skills below come back in a different context."}
         </p>
+        {reviewNote && (
+          <div className="mt-4 flex max-w-xl items-end gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sk-amber text-xs font-bold text-[#2b1f00]" aria-hidden>{activity.contextLabel.trim()[0]}</span>
+            <div className="rounded-2xl rounded-es-sm bg-white p-3 text-sm leading-snug text-[#17152e]">
+              <p className="font-mono text-[11px] text-[#5a5680]">{activity.contextLabel} · {allMet ? "review note" : "look at this"}</p>
+              {reviewNote}
+            </div>
+          </div>
+        )}
       </div>
 
       {mode === "preview" && <Notice tone="accent" title="Preview mode">This evaluation uses the real assessment rules, but no evidence is recorded.</Notice>}
@@ -69,20 +86,23 @@ export function FeedbackPanel({
       <section aria-label="Results by skill" className="space-y-2">
         {evaluation.skills.map((s) => {
           const p = view.progress[s.skillId];
+          const idx = Math.max(0, bundle.skills.findIndex((x) => x.id === s.skillId));
           return (
-            <div key={s.skillId} className="rounded-xl border border-line bg-surface p-3">
-              <p className="text-sm font-medium text-fg">{skillName(s.skillId)}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <div key={s.skillId} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
+              {mode === "learner" && p && <SkillRing index={idx} progress={p} size={56} animateNew={s.met} />}
+              <div className="min-w-0 flex-1">
+              <p className="font-display text-lg font-extrabold tracking-tight text-fg">{skillName(s.skillId)}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
                 <span className={cn("inline-flex items-center gap-1.5 text-sm", s.met ? "text-ok" : "text-warn")}>
                   {s.met ? <CheckCircle2 size={15} aria-hidden /> : <CircleAlert size={15} aria-hidden />}
                   {s.met ? "Criteria met in this attempt" : "Not met yet"}
                 </span>
                 {mode === "learner" && p && (
                   <span className="ms-auto flex items-center gap-2">
-                    <EvidenceMeter progress={p} compact />
                     <SkillStatusBadge status={p.status} />
                   </span>
                 )}
+              </div>
               </div>
             </div>
           );
@@ -120,8 +140,8 @@ export function FeedbackPanel({
       )}
 
       {/* Next action */}
-      <section aria-labelledby="fb-next" className="space-y-3 rounded-xl border border-accent/30 bg-accent/5 p-4">
-        <h3 id="fb-next" className="text-sm font-semibold text-fg">Recommended next</h3>
+      <section aria-labelledby="fb-next" className={cn("space-y-3 rounded-[22px] border p-5", allMet ? "border-ok/30 bg-ok-bg" : "border-sk-coral/40 bg-bad-bg")}>
+        <h3 id="fb-next" className="font-display text-xl font-extrabold tracking-tight text-fg">Recommended next</h3>
         {rec?.type === "activity" && (() => {
           const next = bundle.activities.find((a) => a.id === rec.activityId)!;
           return (

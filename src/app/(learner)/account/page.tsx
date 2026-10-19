@@ -78,6 +78,7 @@ export default function AccountPage() {
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Toggle id="p-expl" label="Suggest an explanation before practice" hint="When on, path overviews lead with Explore. You can always practise directly." checked={prefs.explanationsFirst} onChange={(v) => dispatch({ type: "setPreferences", prefs: { explanationsFirst: v } })} />
             <Toggle id="p-motion" label="Reduce motion" hint="Turns off interface animation, in addition to your device setting." checked={prefs.reducedMotion} onChange={(v) => dispatch({ type: "setPreferences", prefs: { reducedMotion: v } })} />
+            <Toggle id="p-sound" label="Sound cues" hint="Short tones when you pick, apply or ship a design. Off if your device is muted." checked={prefs.sound !== false} onChange={(v) => dispatch({ type: "setPreferences", prefs: { sound: v } })} />
             <Toggle id="p-captions" label="Show transcripts by default" hint="Applies to video lessons when they are available." checked={prefs.captions} onChange={(v) => dispatch({ type: "setPreferences", prefs: { captions: v } })} />
             <div>
               <label htmlFor="p-goal" className="block text-sm font-medium text-fg">Weekly practice goal</label>

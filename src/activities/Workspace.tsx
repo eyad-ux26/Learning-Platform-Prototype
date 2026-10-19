@@ -10,6 +10,8 @@ import { t } from "@/i18n/en";
 import { useApp, type PathView } from "@/state/AppState";
 import { Badge, Button, Dialog, LinkButton, Notice, Tabs, cn } from "@/components/ui";
 import { SkillStatusBadge } from "@/components/SkillStatus";
+import { SkillRing } from "@/components/SkillRing";
+import { playSfx } from "@/components/sfx";
 import { DesignBenchControls, DesignBenchStage } from "./DesignBench";
 import { CritiqueControls, CritiqueStage } from "./Critique";
 import { DecisionControls, DecisionStage } from "./Decision";
@@ -136,12 +138,14 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
     }
     if (mode === "learner") {
       const attempt = submit({ bundle: view.bundle, version, activity, response, hintsUsed, solutionRevealed });
+      playSfx(attempt.evaluation.skills.every((x) => x.met) ? "ship" : "reopen");
       setResult({ attempt, evaluation: attempt.evaluation });
     } else {
       setResult({ evaluation: evaluate(activity, response, view.bundle.skills) });
     }
     setPhase("feedback");
     setSection("feedback");
+    window.scrollTo({ top: 0, behavior: "smooth" });
     requestAnimationFrame(() => document.getElementById("feedback-heading")?.focus());
   };
 
@@ -190,38 +194,51 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   const lastAttempt = mode === "learner" ? [...view.pathAttempts].reverse().find((a) => a.activityId === activity.id) : undefined;
 
   const brief = (
-    <div className="space-y-5">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Scenario</p>
-        <p className="mt-1.5 text-sm leading-relaxed text-fg">{activity.scenario}</p>
+    <div className="space-y-4">
+      <div className="rounded-[22px] border-[1.5px] border-brand-strong bg-surface p-4">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sk-amber text-sm font-bold text-[#2b1f00]" aria-hidden>{activity.contextLabel.trim()[0]}</span>
+          <div className="leading-tight">
+            <p className="text-sm font-semibold text-fg">Client brief</p>
+            <p className="font-mono text-[11px] text-subtle">{activity.contextLabel}</p>
+          </div>
+        </div>
+        <p className="mt-3 rounded-2xl rounded-es-sm bg-overlay p-3 text-sm leading-relaxed text-fg">{activity.scenario}</p>
+        <p className="mt-2 ms-auto w-fit rounded-2xl rounded-ee-sm bg-brand px-3 py-2 text-sm font-semibold text-white">{activity.task}</p>
       </div>
-      <div className="rounded-xl border border-accent/30 bg-accent/5 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-accent">Your task</p>
-        <p className="mt-1 text-sm leading-relaxed text-fg">{activity.task}</p>
-      </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Context and constraints</p>
-        <ul className="mt-1.5 list-disc space-y-1 ps-4 text-sm text-muted">
+      <details className="group rounded-2xl border border-line bg-surface">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 font-mono text-xs font-semibold text-accent">
+          Constraints ({activity.constraints.length})
+          <span aria-hidden className="transition-transform group-open:rotate-180">⌄</span>
+        </summary>
+        <ul className="list-disc space-y-1 px-4 pb-3 ps-8 text-sm text-muted">
           {activity.constraints.map((c) => <li key={c}>{c}</li>)}
         </ul>
-      </div>
+      </details>
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{t.practice.targetSkills}</p>
+        <p className="font-mono text-xs font-semibold text-accent">{t.practice.targetSkills}</p>
         <ul className="mt-2 space-y-2">
           {skillIds.map((id) => {
-            const skill = view.bundle.skills.find((s) => s.id === id)!;
+            const idx = Math.max(0, view.bundle.skills.findIndex((s) => s.id === id));
+            const skill = view.bundle.skills[idx];
             const p = view.progress[id];
             const contextUsed = p?.contextsMet.some((c) => c.contextKey === activity.contextKey);
             return (
-              <li key={id} className="rounded-lg border border-line bg-surface p-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-fg">{skill.name}</span>
-                  {mode === "learner" && p && <SkillStatusBadge status={p.status} />}
+              <li key={id} className="rounded-2xl border border-line bg-surface p-3">
+                <div className="flex items-start gap-3">
+                  {mode === "learner" && p ? <SkillRing index={idx} progress={p} size={44} /> : null}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold leading-snug text-fg">{skill.name}</p>
+                    {mode === "learner" && p && <SkillStatusBadge status={p.status} className="mt-1.5" />}
+                  </div>
                 </div>
-                <ul className="mt-1 space-y-0.5 text-xs text-muted">
-                  {skill.criteria.filter((c) => activity.criteria.includes(c.id)).map((c) => <li key={c.id}>• {c.statement}</li>)}
-                </ul>
-                {mode === "learner" && contextUsed && <p className="mt-1 text-xs text-subtle">You already met this skill in this context. Retrying is good practice but won’t add a new context.</p>}
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-subtle hover:text-fg">What is assessed</summary>
+                  <ul className="mt-1.5 space-y-0.5 text-xs text-muted">
+                    {skill.criteria.filter((c) => activity.criteria.includes(c.id)).map((c) => <li key={c.id}>• {c.statement}</li>)}
+                  </ul>
+                </details>
+                {mode === "learner" && contextUsed && <p className="mt-1.5 text-xs text-subtle">Already met in this context. Retrying is good practice but won’t add a new context.</p>}
               </li>
             );
           })}
@@ -238,6 +255,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
     </div>
   );
 
+  const sig = JSON.stringify(response).length;
   // < lg: one section at a time. lg: Brief alone, or response + interface side by side. xl: all three columns.
   const vis = (s: Section) => (section === s ? "block" : "hidden");
   const work = section !== "brief" ? "lg:block" : "";
@@ -250,7 +268,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
           <ArrowLeft size={16} />
         </Link>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-subtle">
+          <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-accent">
             <span>{TEMPLATE_LABEL[activity.template]}</span>
             <span aria-hidden>·</span>
             <span>{activity.contextLabel}</span>
@@ -260,7 +278,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
             {activity.kind === "alternative" && <Badge>Alternative practice</Badge>}
             {mode === "preview" && <Badge tone="ai">Admin preview · v{version}</Badge>}
           </div>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight text-fg sm:text-2xl">{activity.title}</h1>
+          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-fg sm:text-3xl">{activity.title}</h1>
         </div>
         <div className="flex items-center gap-2">
           {mode === "learner" && (
@@ -287,10 +305,11 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
 
       <div className={cn("mt-4 grid gap-6", "lg:grid-cols-[minmax(320px,400px)_1fr] xl:grid-cols-[300px_minmax(340px,400px)_1fr]")}>
         <aside className={cn(vis("brief"), "lg:col-span-2 xl:col-span-1 xl:block")} aria-label="Brief">
-          <div className="xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pe-1">{brief}</div>
+          <div className="xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pe-1"><ColumnTag n={1} pulse={phase === "working" && !hintsUsed}>Read first</ColumnTag>{brief}</div>
         </aside>
 
         <section className={cn(phase === "feedback" ? vis("feedback") : vis("controls"), work, "xl:block")} aria-label={phase === "feedback" ? "Feedback" : controlsLabel}>
+          <ColumnTag n={2}>{phase === "feedback" ? "Ship review" : controlsLabel}</ColumnTag>
           {phase === "feedback" && result ? (
             <div ref={feedbackRef}>
               <FeedbackPanel view={view} activity={activity} attempt={result.attempt} evaluation={result.evaluation} mode={mode} onRetry={retry} />
@@ -312,7 +331,11 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
 
         <section className={cn(vis("stage"), work, "xl:block")} aria-label="Interface">
           <div className="lg:sticky lg:top-20">
-            {stage}
+            <ColumnTag n={3}>Live</ColumnTag>
+            <div className="relative p-3">
+              <span key={sig} aria-hidden className="sel-snap pointer-events-none absolute inset-0 z-10 hidden rounded-[22px] outline outline-2 outline-offset-4 outline-brand-strong/70 lg:block" />
+              {stage}
+            </div>
             {phase === "feedback" && activity.template === "critique" && <div className="mt-4">{controls}</div>}
           </div>
         </section>
@@ -331,7 +354,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
               </Button>
             )}
             <Button variant="primary" onClick={doSubmit} className="ms-auto lg:ms-0">
-              <Send size={15} aria-hidden /> {t.practice.submit}
+              <Send size={15} aria-hidden /> {t.practice.submit} <span className="ms-1 hidden rounded-md bg-black/20 px-1.5 font-mono text-[11px] sm:inline" aria-hidden>↵</span>
             </Button>
           </div>
         </div>
@@ -424,6 +447,15 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
         footer={<><Button variant="ghost" onClick={() => setConfirmReset(false)}>Cancel</Button><Button variant="danger" onClick={reset}>Reset response</Button></>}
       />
     </div>
+  );
+}
+
+function ColumnTag({ n, children, pulse }: { n: number; children: React.ReactNode; pulse?: boolean }) {
+  return (
+    <p className="mb-3 hidden items-center gap-2 font-mono text-xs font-semibold text-accent lg:flex">
+      <span className={cn("flex h-5 w-5 items-center justify-center rounded-full bg-brand-strong text-[11px] text-white", pulse && "animate-pulse-ring")} aria-hidden>{n}</span>
+      {children}
+    </p>
   );
 }
 

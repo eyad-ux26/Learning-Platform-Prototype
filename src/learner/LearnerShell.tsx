@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Settings2, UserRound, LineChart, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, Settings2, UserRound, LineChart, AlertTriangle, Volume2, VolumeX } from "lucide-react";
 import { accessLabel, isSubscriptionActive } from "@/domain/access";
 import { t, PRODUCT_NAME } from "@/i18n/en";
 import { useApp } from "@/state/AppState";
@@ -16,7 +16,8 @@ const NAV = [
 
 export function LearnerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { learner, loadStatus, dismissLoadStatus } = useApp();
+  const { learner, loadStatus, dismissLoadStatus, dispatch } = useApp();
+  const soundOn = learner.preferences.sound !== false;
   const subscribed = isSubscriptionActive(learner.access);
   // The practice workspace has its own bottom action bar on small screens.
   const inWorkspace = pathname.includes("/practice/");
@@ -26,11 +27,12 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-ink">
         {t.nav.skip}
       </a>
-      <header className="sticky top-0 z-40 border-b border-line bg-canvas/95 backdrop-blur supports-[backdrop-filter]:bg-canvas/80">
+      <header className="sticky top-0 z-40 border-b border-line bg-[#15151a]/95 backdrop-blur supports-[backdrop-filter]:bg-[#15151a]/85">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight text-fg">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-ink" aria-hidden>
+          <Link href="/" className="flex items-center gap-2 font-display text-lg font-extrabold tracking-tight text-fg">
+            <span className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-base font-extrabold text-white" aria-hidden>
               {PRODUCT_NAME[0]}
+              <span className="absolute -bottom-1 -end-1 h-2 w-2 border border-brand-strong bg-white" />
             </span>
             <span>{PRODUCT_NAME}</span>
           </Link>
@@ -40,13 +42,22 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 aria-current={match(pathname) ? "page" : undefined}
-                className={cn("rounded-lg px-3 py-2 text-sm font-medium", match(pathname) ? "bg-raised text-fg" : "text-muted hover:text-fg")}
+                className={cn("rounded-xl px-3 py-2 text-sm font-medium", match(pathname) ? "bg-brand-deep text-white" : "text-muted hover:text-fg")}
               >
                 {label}
               </Link>
             ))}
           </nav>
           <div className="ms-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => dispatch({ type: "setPreferences", prefs: { sound: !soundOn } })}
+              aria-label={soundOn ? "Turn sound off" : "Turn sound on"}
+              aria-pressed={soundOn}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-raised text-muted hover:text-fg"
+            >
+              {soundOn ? <Volume2 size={17} aria-hidden /> : <VolumeX size={17} aria-hidden />}
+            </button>
             <Link href={subscribed ? "/account" : "/subscribe"} className="hidden sm:block">
               <Badge tone={subscribed ? "ok" : learner.access.plan === "expired" ? "warn" : "neutral"}>{accessLabel(learner.access)}</Badge>
             </Link>
@@ -55,7 +66,7 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
                 {t.nav.admin}
               </Link>
             )}
-            <Link href="/account" className="flex h-9 w-9 items-center justify-center rounded-full border border-line-strong bg-raised text-sm font-semibold" aria-label={`Account: ${learner.name}`}>
+            <Link href="/account" className="flex h-10 w-10 items-center justify-center rounded-full bg-sk-amber text-sm font-bold text-[#2b1f00]" aria-label={`Account: ${learner.name}`}>
               {learner.name.split(" ").map((p) => p[0]).join("").slice(0, 2)}
             </Link>
           </div>
@@ -92,9 +103,9 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
       </footer>
 
       {/* Mobile bottom navigation */}
-      {!inWorkspace && <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-line bg-canvas/95 md:hidden">
+      {!inWorkspace && <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-line bg-[#15151a]/95 md:hidden">
         {NAV.map(({ href, label, icon: Icon, match }) => (
-          <Link key={href} href={href} aria-current={match(pathname) ? "page" : undefined} className={cn("flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs", match(pathname) ? "text-fg" : "text-subtle")}>
+          <Link key={href} href={href} aria-current={match(pathname) ? "page" : undefined} className={cn("flex min-h-14 flex-col items-center justify-center gap-0.5 font-mono text-[11px]", match(pathname) ? "text-accent" : "text-subtle")}>
             <Icon size={18} aria-hidden />
             {label}
           </Link>

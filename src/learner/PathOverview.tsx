@@ -7,8 +7,9 @@ import { recommendNext } from "@/domain/recommend";
 import type { Activity, LearnerRecord } from "@/domain/types";
 import { t } from "@/i18n/en";
 import { PathCover } from "@/components/PathArt";
-import { EvidenceMeter, SkillStatusBadge } from "@/components/SkillStatus";
-import { Badge, Card, LinkButton, Notice, SectionHeading, cn } from "@/components/ui";
+import { SkillStatusBadge } from "@/components/SkillStatus";
+import { SkillRing } from "@/components/SkillRing";
+import { Badge, Card, Frame, Handles, LinkButton, Notice, SectionHeading, cn } from "@/components/ui";
 import type { PathView } from "@/state/AppState";
 import { AccessBadge } from "./PathCard";
 
@@ -51,7 +52,8 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
         <Link href={preview ? "/admin/paths" : "/"} className="hover:text-fg">{preview ? "Paths" : "Library"}</Link> <span aria-hidden>/</span> <span className="text-muted">{meta.title}</span>
       </nav>
 
-      <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-surface">
+      <Frame name={`Frame · ${meta.topic}`} className="mt-9">
+      <Handles className="overflow-hidden rounded-[28px] border border-line bg-surface">
         <PathCover cover={meta.cover} icon={meta.icon} className="h-28 sm:h-32" />
         <div className="grid gap-8 p-5 sm:p-8 lg:grid-cols-[1fr_320px]">
           <div>
@@ -60,7 +62,7 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
               <Badge>{meta.topic}</Badge>
               {view.enrolledVersion && view.enrolledVersion < view.latestVersion && !preview && <Badge tone="ai">Your enrollment: version {view.enrolledVersion}</Badge>}
             </div>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">{meta.title}</h1>
+            <h1 className="mt-3 text-3xl font-extrabold leading-[1.05] tracking-tight text-fg sm:text-5xl">{meta.title}</h1>
             <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted">{meta.summary}</p>
             <dl className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm">
               <div><dt className="text-subtle">Level</dt><dd className="text-fg">{meta.level}</dd></div>
@@ -107,7 +109,8 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
             </Notice>
           )}
         </div>
-      </div>
+      </Handles>
+      </Frame>
 
       {view.enrolledVersion && view.enrolledVersion < view.latestVersion && !preview && (
         <Notice tone="ai" className="mt-6" title={`Version ${view.latestVersion} of this path has been published`} action={onMoveToLatest && <button type="button" onClick={onMoveToLatest} className="text-sm font-medium text-accent hover:underline">Move my enrollment to version {view.latestVersion}</button>}>
@@ -119,25 +122,20 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
         <div className="space-y-10">
           <section aria-labelledby="skills">
             <SectionHeading id="skills" title="Skills you will demonstrate" />
-            <ul className="mt-4 space-y-3">
-              {bundle.skills.map((s) => {
+            <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+              {bundle.skills.map((s, i) => {
                 const p = view.progress[s.id];
                 return (
                   <li key={s.id}>
-                    <Card className="p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-fg">{s.name}</p>
-                          <p className="mt-1 text-sm text-muted">{s.description}</p>
-                        </div>
-                        {!isPreviewPath && p && <SkillStatusBadge status={p.status} />}
+                    <Card className={cn("flex h-full gap-4 p-4", p?.practiceRecommended && "border-sk-coral")}>
+                      {!isPreviewPath && p ? <SkillRing index={i} progress={p} size={64} /> : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-dashed border-line-strong text-subtle"><Circle size={14} aria-hidden /></span>}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-display text-lg font-extrabold leading-tight tracking-tight text-fg">{s.name}</p>
+                        {!isPreviewPath && p && <div className="mt-1.5"><SkillStatusBadge status={p.status} /></div>}
+                        <p className="mt-2 text-sm text-muted">{s.description}</p>
+                        {!isPreviewPath && p && <p className="mt-1.5 font-mono text-xs text-subtle">{Math.min(p.contextsMet.length, p.requiredContexts)} / {p.requiredContexts} contexts</p>}
+                        {isPreviewPath && s.criteria.length === 0 && <p className="mt-2 text-xs text-subtle">{t.access.notIncluded}</p>}
                       </div>
-                      {!isPreviewPath && p && (
-                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                          <EvidenceMeter progress={p} />
-                        </div>
-                      )}
-                      {isPreviewPath && s.criteria.length === 0 && <p className="mt-2 text-xs text-subtle">{t.access.notIncluded}</p>}
                     </Card>
                   </li>
                 );

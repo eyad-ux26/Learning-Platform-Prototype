@@ -4,6 +4,7 @@ import { isSubscriptionActive } from "@/domain/access";
 import type { AccessState, LearnerRecord } from "@/domain/types";
 import { PathCover } from "@/components/PathArt";
 import { Badge } from "@/components/ui";
+import { SkillRing } from "@/components/SkillRing";
 import type { PathView } from "@/state/AppState";
 
 export type ProgressState = "not-started" | "in-progress" | "completed";
@@ -32,14 +33,14 @@ export function PathCard({ view, learner, recommended }: { view: PathView; learn
   const viewed = explore.filter((c) => learner.viewedConcepts[c.id]).length;
   const preview = meta.availability === "preview";
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface transition-colors hover:border-line-strong">
+    <article className="group relative flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface transition-[transform,border-color] hover:-translate-y-0.5 hover:border-brand-strong">
       <PathCover cover={meta.cover} icon={meta.icon} className="h-24" />
       <div className="flex flex-1 flex-col p-5">
         <div className="flex flex-wrap items-center gap-2">
           {recommended && <Badge tone="accent">Recommended start</Badge>}
           <AccessBadge view={view} access={learner.access} />
         </div>
-        <h3 className="mt-3 text-lg font-semibold tracking-tight text-fg">
+        <h3 className="mt-3 font-display text-xl font-extrabold tracking-tight text-fg">
           <Link href={`/paths/${meta.id}`} className="after:absolute after:inset-0 focus-visible:outline-none">
             {meta.title}
           </Link>
@@ -51,12 +52,26 @@ export function PathCard({ view, learner, recommended }: { view: PathView; learn
           <div><dt className="sr-only">Topic</dt><dd>{meta.topic}</dd></div>
         </dl>
         <div className="mt-4">
-          <p className="text-xs font-medium text-subtle">{skills.length} skills to demonstrate</p>
-          <ul className="mt-1.5 flex flex-wrap gap-1.5">
-            {skills.map((s) => (
-              <li key={s.id} className="rounded-md border border-line bg-raised px-2 py-0.5 text-xs text-muted">{s.name}</li>
-            ))}
-          </ul>
+          {preview ? (
+            <>
+              <p className="text-xs font-medium text-subtle">{skills.length} skills planned</p>
+              <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                {skills.map((s) => (
+                  <li key={s.id} className="rounded-md border border-dashed border-line-strong px-2 py-0.5 text-xs text-muted">{s.name}</li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <ul className="flex flex-wrap gap-3" aria-label="Skill progress">
+              {skills.map((s, i) => (
+                <li key={s.id} className="flex flex-col items-center gap-1" title={s.name}>
+                  <SkillRing index={i} progress={view.progress[s.id]} size={48} />
+                  <span className="max-w-14 truncate font-mono text-[10px] text-subtle">{s.name.split(" ")[0]}</span>
+                  <span className="sr-only">{s.name}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="mt-auto pt-5">
           {preview ? (

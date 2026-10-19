@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { AppProvider } from "@/state/AppState";
 import { PRODUCT_NAME } from "@/i18n/en";
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
+import "@fontsource-variable/bricolage-grotesque";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -10,7 +13,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export const viewport: Viewport = { themeColor: "#0c0e12", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#101014", width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

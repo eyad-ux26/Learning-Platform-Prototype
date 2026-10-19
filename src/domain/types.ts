@@ -438,6 +438,8 @@ export interface LearnerPreferences {
   reducedMotion: boolean;
   weeklyGoalMinutes: number;
   captions: boolean;
+  /** Interface sound cues. Treated as on when absent (older saved data). */
+  sound?: boolean;
 }
 
 export interface LearnerRecord {

@@ -10,6 +10,7 @@ import type { ValidationReport } from "@/domain/validation";
 import { createLocalStorageRepository, type LoadStatus, type PrototypeRepository } from "@/persistence/repository";
 import type { PrototypeState } from "@/persistence/state";
 import { Spinner } from "@/components/ui";
+import { setSoundEnabled } from "@/components/sfx";
 import { reducer, type Action } from "./reducer";
 
 interface AppContextValue {
@@ -59,6 +60,7 @@ export function AppProvider({ children, repository }: { children: ReactNode; rep
   useEffect(() => {
     if (!learner) return;
     document.documentElement.dataset.reducedMotion = String(learner.preferences.reducedMotion);
+    setSoundEnabled(learner.preferences.sound !== false);
   }, [learner]);
 
   const submit = useCallback<AppContextValue["submit"]>(({ bundle, version, activity, response, hintsUsed, solutionRevealed }) => {
