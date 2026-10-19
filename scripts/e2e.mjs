@@ -225,6 +225,24 @@ await journey("G. Content reviewer inspects coverage before publication", async 
 });
 
 // Responsive review screenshots.
+await journey("H. Switch to Arabic, work in right-to-left, switch back", async () => {
+  await go("/");
+  await page.getByRole("button", { name: "العربية" }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "ar" && document.documentElement.dir === "rtl");
+  check(await page.getByRole("heading", { name: /تعلّم باتخاذ قرارات تصميم حقيقية/ }).isVisible(), "home heading should be Arabic");
+  await shot("18-arabic-home");
+  await go("/paths/calibrated-trust/practice/bench-deadline");
+  await page.getByText("موجز العميل").waitFor();
+  await page.locator("fieldset label").first().click();
+  await page.getByRole("button", { name: /القرار التالي/ }).waitFor();
+  await shot("19-arabic-workspace");
+  // The choice survives a language switch: stored data is English, only the display changes.
+  await page.getByRole("button", { name: "English" }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "en" && document.documentElement.dir === "ltr");
+  check(await page.getByText("Client brief").isVisible(), "workspace should return to English");
+  check((await page.locator("fieldset input:checked").count()) + (await page.locator("ol[aria-label='Decisions'] button").count()) > 0, "decisions should still render");
+});
+
 await journey("Responsive layouts (1024 and 390)", async () => {
   await switchTo("Priya");
   for (const [w, h, tag] of [[1024, 900, "tablet"], [390, 844, "mobile"]]) {

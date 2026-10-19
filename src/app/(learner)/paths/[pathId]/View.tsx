@@ -2,6 +2,7 @@
 
 import { useRouteParams } from "@/state/routeParams";
 
+import { useI18n } from "@/i18n";
 import { useApp, usePathView } from "@/state/AppState";
 import { PathOverview } from "@/learner/PathOverview";
 import { Unavailable } from "@/learner/Unavailable";
@@ -10,7 +11,8 @@ export function PathPage({ params }: { params?: Record<string, string> } = {}) {
   const { pathId } = useRouteParams<{ pathId: string }>(params);
   const view = usePathView(pathId);
   const { learner, dispatch } = useApp();
-  if (!view || !view.visible) return <Unavailable title="This path isn’t available" detail="It may have been unpublished or archived. Any evidence you recorded is kept." />;
+  const { tr } = useI18n();
+  if (!view || !view.visible) return <Unavailable title={tr("This path isn’t available")} detail={tr("It may have been unpublished or archived. Any evidence you recorded is kept.")} />;
   return (
     <PathOverview
       view={view}

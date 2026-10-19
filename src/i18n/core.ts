@@ -70,9 +70,28 @@ function localizeString(s: string): string {
     out = fill(p.out, params);
     break;
   }
+  if (out === s) out = localizeParts(s);
   if (cache.size > 20000) cache.clear();
   cache.set(s, out);
   return out;
+}
+
+/**
+ * Strings assembled by joining authored sentences (" " between sentences, " · " between clauses) are translated part by part.
+ * Used only when the whole string has no entry. Returns the input unchanged if no part is known.
+ */
+function localizeParts(s: string): string {
+  const pieces = s.split(/((?<=[.?!])\s+| · )/);
+  if (pieces.length < 3) return s;
+  let changed = false;
+  const out = pieces.map((piece, i) => {
+    if (i % 2 === 1) return piece;
+    const t = arabic[piece] ?? arabic[piece.replace(/[.]$/, "")];
+    if (t === undefined) return piece;
+    changed = true;
+    return t;
+  });
+  return changed ? out.join("") : s;
 }
 
 const done = new WeakMap<object, unknown>();

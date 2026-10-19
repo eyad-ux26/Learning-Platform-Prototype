@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { FileQuestion } from "lucide-react";
+import { useI18n } from "@/i18n";
 import { AdminShell } from "@/admin/AdminShell";
 import { LearnerShell } from "@/learner/LearnerShell";
 import { EmptyState, LinkButton, Spinner } from "@/components/ui";
@@ -39,6 +40,7 @@ const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const subscribe = () => () => {};
 
 export default function NotFound() {
+  const { tr } = useI18n();
   const pathname = useSyncExternalStore(subscribe, () => window.location.pathname, () => null);
   if (pathname === null) return <div className="flex min-h-screen items-center justify-center"><Spinner /></div>;
 
@@ -53,8 +55,8 @@ export default function NotFound() {
 
   return (
     <div className="mx-auto max-w-xl px-4 py-20">
-      <EmptyState title="Page not found" icon={<FileQuestion size={28} />} action={<LinkButton href="/" variant="primary">Go to Home</LinkButton>}>
-        This address doesn’t exist in the prototype.
+      <EmptyState title={tr("Page not found")} icon={<FileQuestion size={28} />} action={<LinkButton href="/" variant="primary">{tr("Go to Home")}</LinkButton>}>
+        {tr("This address doesn’t exist in the prototype.")}
       </EmptyState>
     </div>
   );

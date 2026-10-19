@@ -37,6 +37,8 @@ const ar: Record<string, string> = {
   "✗ {title} → {choice}": "✗ {title} → {choice}",
   "✓ “{label}”: you judged {judged}": "✓ “{label}”: حكمتَ بأنه {judged}",
   "✗ “{label}”: you judged {judged}": "✗ “{label}”: حكمتَ بأنه {judged}",
+  "✓ “{label}”: you judged not reviewed": "✓ “{label}”: لم تتم مراجعته",
+  "✗ “{label}”: you judged not reviewed": "✗ “{label}”: لم تتم مراجعته",
   "acceptable — {reason}": "مقبول — {reason}",
   "problematic — {reason}": "إشكالي — {reason}",
   "acceptable": "مقبول",

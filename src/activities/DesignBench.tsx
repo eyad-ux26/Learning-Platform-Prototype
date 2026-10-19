@@ -51,9 +51,9 @@ export function DesignBenchControls({
   const total = activity.decisions.length;
   const done = activity.decisions.filter((d) => selections[d.id]).length;
   const firstOpen = Math.max(0, activity.decisions.findIndex((d) => !selections[d.id]));
-  const [picked, setPicked] = useState<number | null>(null);
+  const [picked, setPicked] = useState(firstOpen);
   const [tip, setTip] = useState<string | null>(null);
-  const step = Math.min(total - 1, picked ?? firstOpen);
+  const step = Math.min(total - 1, picked);
   const d = activity.decisions[step];
   const dim = DIMENSION[d.dimension];
   const go = (i: number) => {

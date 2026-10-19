@@ -3,22 +3,24 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { ArrowRight } from "lucide-react";
+import { useI18n } from "@/i18n";
 import { useApp, visibleLibrary } from "@/state/AppState";
 import { EvidenceMeter, SkillStatusBadge } from "@/components/SkillStatus";
 import { Card, EmptyState, LinkButton } from "@/components/ui";
 
 export default function ProgressPage() {
   const { state, learner } = useApp();
+  const { tr } = useI18n();
   const library = useMemo(() => visibleLibrary(state, learner), [state, learner]);
   const active = library.filter((v) => v.pathAttempts.length > 0 || v.bundle.explore.some((c) => learner.viewedConcepts[c.id]));
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-fg sm:text-3xl">Progress</h1>
-      <p className="mt-2 text-muted">Skill status comes from evidence in practice. Lessons viewed are shown separately.</p>
+      <h1 className="text-2xl font-semibold tracking-tight text-fg sm:text-3xl">{tr("Progress")}</h1>
+      <p className="mt-2 text-muted">{tr("Skill status comes from evidence in practice. Lessons viewed are shown separately.")}</p>
       {active.length === 0 ? (
         <div className="mt-8">
-          <EmptyState title="No progress yet" action={<LinkButton href="/" variant="primary">Find a path</LinkButton>}>Try a free sample activity to start collecting evidence.</EmptyState>
+          <EmptyState title={tr("No progress yet")} action={<LinkButton href="/" variant="primary">{tr("Find a path")}</LinkButton>}>{tr("Try a free sample activity to start collecting evidence.")}</EmptyState>
         </div>
       ) : (
         <ul className="mt-8 space-y-6">
@@ -31,12 +33,12 @@ export default function ProgressPage() {
                     <div>
                       <h2 className="text-lg font-semibold text-fg">{v.bundle.meta.title}</h2>
                       <p className="mt-1 text-sm text-muted">
-                        {v.bundle.meta.availability === "full" ? (v.completion.complete ? "Complete" : `${v.completion.mastered.length} of ${v.bundle.requiredSkillIds.length} skills Mastered`) : "Preview path · sample evidence only"}
-                        {v.bundle.explore.length > 0 && ` · ${viewed} of ${v.bundle.explore.length} lessons viewed`}
+                        {v.bundle.meta.availability === "full" ? (v.completion.complete ? tr("Complete") : tr("{n} of {m} skills Mastered", { n: v.completion.mastered.length, m: v.bundle.requiredSkillIds.length })) : tr("Preview path · sample evidence only")}
+                        {v.bundle.explore.length > 0 && ` · ${tr("{n} of {m} lessons viewed", { n: viewed, m: v.bundle.explore.length })}`}
                       </p>
                     </div>
                     <Link href={`/paths/${v.bundle.meta.id}/skills`} className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-                      Evidence and history <ArrowRight size={14} aria-hidden />
+                      {tr("Evidence and history")} <ArrowRight size={14} aria-hidden />
                     </Link>
                   </div>
                   <ul className="mt-4 divide-y divide-line">

@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { ArrowRight, Lock, PlayCircle, Search, SearchX } from "lucide-react";
 import { FLAGSHIP_ID } from "@/content/flagship";
 import { recommendNext } from "@/domain/recommend";
-import { t } from "@/i18n/en";
 import { useI18n } from "@/i18n";
 import { useApp, visibleLibrary } from "@/state/AppState";
 import { Badge, Button, EmptyState, Frame, Handles, LinkButton, SectionHeading, inputClass } from "@/components/ui";
