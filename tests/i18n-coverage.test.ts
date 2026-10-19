@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { flagshipBundle } from "@/content/flagship";
 import { libraryBundles } from "@/content/library";
-import { hasArabic } from "@/i18n/core";
+import { hasArabic, hasEgyptian } from "@/i18n/core";
 import "@/i18n/ar";
+import "@/i18n/eg";
 
 const ID_KEYS = new Set(["id", "pathId", "skillId", "activityId", "criterionId", "contextKey", "template", "kind", "behaviour", "dimension", "cover", "icon", "iso", "valueIso", "type", "level"]);
 
@@ -21,5 +22,13 @@ describe("Arabic content coverage", () => {
     libraryBundles.forEach((b) => sentences(b, all));
     const missing = [...all].filter((s) => !hasArabic(s));
     expect(missing, `Untranslated: ${missing.slice(0, 5).join(" | ")}`).toEqual([]);
+  });
+
+  it("has an Egyptian entry for every authored sentence too", () => {
+    const all = new Set<string>();
+    sentences(flagshipBundle, all);
+    libraryBundles.forEach((b) => sentences(b, all));
+    const missing = [...all].filter((s) => !hasEgyptian(s));
+    expect(missing, `No Egyptian entry: ${missing.slice(0, 5).join(" | ")}`).toEqual([]);
   });
 });

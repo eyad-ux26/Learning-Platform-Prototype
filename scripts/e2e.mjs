@@ -227,7 +227,7 @@ await journey("G. Content reviewer inspects coverage before publication", async 
 // Responsive review screenshots.
 await journey("H. Switch to Arabic, work in right-to-left, switch back", async () => {
   await go("/");
-  await page.getByRole("button", { name: "العربية" }).click();
+  await page.getByRole("button", { name: "العربية الفصحى" }).click();
   await page.waitForFunction(() => document.documentElement.lang === "ar" && document.documentElement.dir === "rtl");
   check(await page.getByRole("heading", { name: /تعلّم باتخاذ قرارات تصميم حقيقية/ }).isVisible(), "home heading should be Arabic");
   await shot("18-arabic-home");
@@ -236,6 +236,19 @@ await journey("H. Switch to Arabic, work in right-to-left, switch back", async (
   await page.locator("fieldset label").first().click();
   await page.getByRole("button", { name: /القرار التالي/ }).waitFor();
   await shot("19-arabic-workspace");
+  // Critique: the reason picker must list reasons in Arabic (machine values are never translated).
+  await go("/paths/calibrated-trust/practice/critique-recap");
+  await page.locator("ol button").first().click();
+  await page.locator("fieldset label").nth(1).click();
+  check((await page.locator("select").first().locator("option").count()) > 1, "critique reason list should not be empty in Arabic");
+  // Egyptian variant
+  await page.getByRole("button", { name: "العربية المصرية" }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "ar-EG" && document.documentElement.dir === "rtl");
+  await go("/");
+  await shot("20-egyptian-home");
+  await go("/paths/calibrated-trust/practice/bench-deadline");
+  await page.locator("fieldset label").first().click();
+  await shot("21-egyptian-workspace");
   // The choice survives a language switch: stored data is English, only the display changes.
   await page.getByRole("button", { name: "English" }).click();
   await page.waitForFunction(() => document.documentElement.lang === "en" && document.documentElement.dir === "ltr");
