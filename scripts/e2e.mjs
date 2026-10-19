@@ -139,6 +139,7 @@ await journey("3. Refresh and resume an unfinished response", async () => {
   await switchTo("Daniel");
   await go("/");
   await page.getByRole("link", { name: "Resume activity" }).click();
+  await page.waitForURL(/practice\/bench-summary/);
   await page.getByRole("heading", { name: "A summary at the top of a policy" }).waitFor();
   check(await isPicked(/Insert it as a labelled ‘Assistant draft’ block/), "saved selection should be restored");
   await pick(/List the sections used and those left out/);
@@ -184,8 +185,8 @@ await journey("5. Edit, preview and publish admin content", async () => {
   await page.getByLabel("Change note").fill("Clarified summary");
   await page.getByRole("dialog").getByRole("button", { name: /Publish version 2/ }).click();
   await page.getByText("Published version 2").waitFor();
-  await go("/");
-  check(await page.getByText(marker).isVisible(), "learner library should show the published change");
+  await go("/paths/calibrated-trust");
+  check(await page.getByText(marker).isVisible(), "learner path page should show the published change");
   await go("/admin/versions");
   check(await page.getByText("Clarified summary").isVisible(), "version history should record the note");
   // Activity editor with real renderer preview.
@@ -229,7 +230,7 @@ await journey("H. Switch to Arabic, work in right-to-left, switch back", async (
   await go("/");
   await page.getByRole("button", { name: "العربية الفصحى" }).click();
   await page.waitForFunction(() => document.documentElement.lang === "ar" && document.documentElement.dir === "rtl");
-  check(await page.getByRole("heading", { name: /تعلّم باتخاذ قرارات تصميم حقيقية/ }).isVisible(), "home heading should be Arabic");
+  check(await page.getByRole("heading", { name: "التخصصات" }).isVisible(), "home heading should be Arabic");
   await shot("18-arabic-home");
   await go("/paths/calibrated-trust/practice/bench-deadline");
   await page.getByText("موجز العميل").waitFor();

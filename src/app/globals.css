@@ -95,6 +95,23 @@ h1, h2 {
 .animate-stamp { animation: stamp 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) 0.2s both; }
 .animate-pulse-ring { animation: pulse-ring 1.6s ease-in-out infinite; }
 .sel-snap { animation: sel-snap 0.55s cubic-bezier(0.2, 1.2, 0.4, 1); }
+@keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes drift { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-14px, -10px); } }
+@keyframes pulse-coral { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 125, 92, 0.55); } 50% { box-shadow: 0 0 0 10px rgba(255, 125, 92, 0); } }
+@keyframes ring-in { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
+@keyframes slide-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+.floaty { animation: floaty 3.2s ease-in-out infinite; }
+.cursor-drift { animation: drift 3s ease-in-out infinite; }
+.pulse-coral { animation: pulse-coral 1.8s ease-in-out infinite; }
+.ring-in { stroke-dashoffset: 60; animation: ring-in 1s 0.3s ease-out forwards; }
+.slide-in { animation: slide-in 0.25s ease-out; }
+/* Canvas pieces lift on hover like layers being picked up. */
+.press { transition: transform 0.12s ease, border-color 0.12s ease, background-color 0.12s ease; cursor: pointer; }
+.press:hover { transform: translateY(-2px); }
+.press:active { transform: translateY(1px); }
+.frame-card { transition: border-color 0.15s ease, transform 0.15s ease; }
+.frame-card:hover { border-color: var(--color-brand-strong); transform: translateY(-3px); }
+.frame-card:hover .frame-tag { color: var(--color-accent); }
 .ring-seg-new { animation: ringfill 0.9s ease-out 0.4s both; }
 
 :focus-visible {
