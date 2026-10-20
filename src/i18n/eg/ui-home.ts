@@ -1,4 +1,4 @@
-// Egyptian layer for the home toolbar and board. Rank titles stay in English; only a few phrases are made conversational.
+// Egyptian layer for the home toolbar and board.
 const home: Record<string, string> = {
   "Junior": "Junior",
   "Designer I": "Designer I",
@@ -8,8 +8,21 @@ const home: Record<string, string> = {
   "Not yet": "لسه",
   "Resume": "كمّل",
   "Replay": "جرّب تاني",
+  "Fix the ticket": "صلّح التذكرة",
   "Practise again": "تدرّب تاني",
   "Back to HQ": "ارجع للرئيسية",
   "Open brief": "افتح الموجز",
+  "Next brief": "الموجز الجاي",
+  "Today": "النهارده",
+  "Daily goal": "هدف النهارده",
+  "selected": "متحدد",
+  "Practice streak: {n} days": "سلسلة التدريب: {n} يوم",
+  "Practice streak: {n} days, {f} freeze used": "سلسلة التدريب: {n} يوم، واتستخدمت فترة تجميد ({f})",
+  "Rep: prototype scoring from your own attempts": "Rep: نقاط تجريبية من محاولاتك إنت",
+  "Rank: {rank}, {pct}% of the way to {next}": "الرتبة: {rank}، قطعت {pct}% من الطريق لـ {next}",
+  "Rank: {rank}, the top rank": "الرتبة: {rank}، وده أعلى رتبة",
+  "Complete when all {n} skills are Mastered": "المسار بيكتمل لما كل المهارات الـ{n} تبقى متقنة",
+  "Rep, streak and rank are prototype scoring from your own attempts. They never change a skill’s status.": "الـ Rep والـ streak والرتبة دي نقاط تجريبية من محاولاتك إنت. عمرها ما بتغيّر حالة أي مهارة.",
+  "Ranks are a prototype of progression, not a credential. Rep comes from your own attempts: {a} per new response, {b} per met criterion without hints and {c} per Mastered skill.": "الرتب دي نموذج تجريبي للتقدّم، مش شهادة. الـ Rep بييجي من محاولاتك إنت: {a} لكل إجابة جديدة، و{b} لكل معيار اتحقق من غير تلميحات، و{c} لكل مهارة متقنة.",
 };
 export default home;

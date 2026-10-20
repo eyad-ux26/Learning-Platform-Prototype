@@ -2,9 +2,9 @@
 
 import { useCallback, useMemo } from "react";
 import { useApp } from "@/state/AppState";
-import { asLocale, dateLocale, dirOf, localizeDeep, translate, type Locale } from "./core";
+import { asLocale, dateLocale, dirOf, isArabic, localizeDeep, translate, type Locale } from "./core";
 
-export { LOCALES, dirOf, type Locale } from "./core";
+export { LOCALES, dirOf, dialectOf, isArabic, localeFor, type Dialect, type Locale } from "./core";
 
 export function useLocale(): Locale {
   const { learner } = useApp();
@@ -17,7 +17,7 @@ export function useLocale(): Locale {
  */
 export function useProductI18n() {
   const i = useI18n();
-  const locale: Locale = i.locale === "ar-EG" ? "ar" : i.locale;
+  const locale: Locale = isArabic(i.locale) ? "ar" : "en";
   const tr = useCallback((key: string, params?: Record<string, string | number>) => translate(locale, key, params), [locale]);
   const L = useCallback(<T,>(value: T): T => localizeDeep(value, locale), [locale]);
   const date = useCallback(

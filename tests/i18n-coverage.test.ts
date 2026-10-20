@@ -4,6 +4,7 @@ import { libraryBundles } from "@/content/library";
 import { hasArabic, hasEgyptian } from "@/i18n/core";
 import "@/i18n/ar";
 import "@/i18n/eg";
+import "@/i18n/gulf";
 
 const ID_KEYS = new Set(["id", "pathId", "skillId", "activityId", "criterionId", "contextKey", "template", "kind", "behaviour", "dimension", "cover", "icon", "iso", "valueIso", "type", "level"]);
 

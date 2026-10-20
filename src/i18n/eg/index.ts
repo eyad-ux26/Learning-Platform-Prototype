@@ -1,6 +1,7 @@
 import { registerEgyptian } from "../core";
 import review from "./ui-review";
-import ui from "./ui";
+import ui1 from "./ui-1";
+import ui2 from "./ui-2";
 import domain from "./domain";
 import library from "./library";
 import c1 from "./content-1";
@@ -11,4 +12,4 @@ import c5 from "./content-5";
 import home from "./ui-home";
 
 // Egyptian layer: entries here win over the Modern Standard Arabic base; anything missing falls back to it.
-registerEgyptian(home, review, c1, c2, c3, c4, c5, library, domain, ui);
+registerEgyptian(home, review, c1, c2, c3, c4, c5, library, domain, ui1, ui2);

@@ -5,6 +5,7 @@ import { getPathView } from "@/state/AppState";
 import { localizeDeep } from "@/i18n/core";
 import "@/i18n/ar";
 import "@/i18n/eg";
+import "@/i18n/gulf";
 
 function view(language: "en" | "ar" | "ar-EG") {
   const state = createInitialState();

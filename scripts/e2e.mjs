@@ -45,6 +45,19 @@ async function journey(name, fn) {
     await shot(`FAILED-${name.replace(/\W+/g, "-")}`).catch(() => {});
   }
 }
+// Two-step language control: pick the language, then (for Arabic) the dialect.
+const LANG_ATTR = { en: "en", ar: "ar", "ar-EG": "ar-EG", "ar-GULF": "ar-AE" };
+const DIALECT_NAME = { ar: /الفصحى/, "ar-EG": /المصرية/, "ar-GULF": /الخليجية/ };
+async function setLang(kind) {
+  await page.getByRole("button", { name: /Language|اللغة/ }).first().click();
+  if (kind === "en") await page.getByRole("radio", { name: "English", exact: true }).click();
+  else {
+    const arabic = page.getByRole("radio", { name: "العربية", exact: true });
+    if ((await arabic.getAttribute("aria-checked")) !== "true") await arabic.click();
+    await page.getByRole("radio", { name: DIALECT_NAME[kind] }).click();
+  }
+  await page.waitForFunction((l) => document.documentElement.lang === l, LANG_ATTR[kind]);
+}
 const radio = (re) => page.getByRole("radio", { name: re });
 // Design Bench shows one decision at a time; jump through the layers list until the option is on screen.
 async function reveal(re) {
@@ -228,8 +241,8 @@ await journey("G. Content reviewer inspects coverage before publication", async 
 // Responsive review screenshots.
 await journey("H. Switch to Arabic, work in right-to-left, switch back", async () => {
   await go("/");
-  await page.getByRole("button", { name: "العربية الفصحى" }).click();
-  await page.waitForFunction(() => document.documentElement.lang === "ar" && document.documentElement.dir === "rtl");
+  await setLang("ar");
+  check((await page.evaluate(() => document.documentElement.dir)) === "rtl", "Arabic should be right-to-left");
   check(await page.getByRole("heading", { name: "التخصصات" }).isVisible(), "home heading should be Arabic");
   await shot("18-arabic-home");
   await go("/paths/calibrated-trust/practice/bench-deadline");
@@ -245,16 +258,27 @@ await journey("H. Switch to Arabic, work in right-to-left, switch back", async (
   await page.waitForTimeout(300);
   check((await radios()) > before + 2, "critique reason list should not be empty in Arabic");
   // Egyptian variant
-  await page.getByRole("button", { name: "العربية المصرية" }).click();
-  await page.waitForFunction(() => document.documentElement.lang === "ar-EG" && document.documentElement.dir === "rtl");
+  await setLang("ar-EG");
   await go("/");
   await shot("20-egyptian-home");
   await go("/paths/calibrated-trust/practice/bench-deadline");
   await page.locator("fieldset label").first().click();
   await shot("21-egyptian-workspace");
+  // Gulf variant: dialect text differs from Modern Standard Arabic, the choice sticks across pages.
+  await setLang("ar-GULF");
+  await go("/");
+  await shot("20b-gulf-home");
+  check((await page.evaluate(() => document.documentElement.lang)) === "ar-AE", "Gulf dialect should be applied");
   // The choice survives a language switch: stored data is English, only the display changes.
-  await page.getByRole("button", { name: "English" }).click();
-  await page.waitForFunction(() => document.documentElement.lang === "en" && document.documentElement.dir === "ltr");
+  await setLang("en");
+  check((await page.evaluate(() => document.documentElement.dir)) === "ltr", "English should be left-to-right");
+  // Switching back to Arabic restores the last dialect.
+  await page.getByRole("button", { name: /Language|اللغة/ }).first().click();
+  await page.getByRole("radio", { name: "العربية", exact: true }).click();
+  await page.waitForFunction(() => document.documentElement.lang === "ar-AE");
+  await page.keyboard.press("Escape");
+  await setLang("en");
+  await go("/paths/calibrated-trust/practice/bench-deadline");
   check(await page.getByText("Client brief").isVisible(), "workspace should return to English");
   check((await page.locator("fieldset input:checked").count()) + (await page.locator("ol[aria-label='Decisions'] button").count()) > 0, "decisions should still render");
 });

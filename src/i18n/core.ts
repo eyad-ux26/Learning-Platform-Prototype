@@ -5,24 +5,32 @@
  * Arabic is applied at display time through dictionaries keyed by the exact English string, in two variants:
  *   "ar"    Modern Standard Arabic (the base)
  *   "ar-EG" Egyptian Arabic, a layer over the base: an Egyptian entry wins, otherwise the base entry is used.
+ *   "ar-GULF" Gulf (Khaleeji) Arabic, a layer over the base in the same way.
  * A key containing `{name}` is a pattern: it matches strings assembled from a template (domain messages,
  * interpolated UI text), and each captured value is localised in turn.
  * Anything without a translation falls back to English, so a missing entry never breaks a screen.
  */
-export type Locale = "en" | "ar" | "ar-EG";
-export const LOCALES: Locale[] = ["en", "ar", "ar-EG"];
-export const asLocale = (v: unknown): Locale => (v === "ar" || v === "ar-EG" ? v : "en");
+export type Locale = "en" | "ar" | "ar-EG" | "ar-GULF";
+export type Dialect = "msa" | "ar-EG" | "ar-GULF";
+export const LOCALES: Locale[] = ["en", "ar", "ar-EG", "ar-GULF"];
+export const asLocale = (v: unknown): Locale => (v === "ar" || v === "ar-EG" || v === "ar-GULF" ? v : "en");
 export const isArabic = (l: Locale) => l !== "en";
+/** The Arabic dialect layer a locale uses; Modern Standard Arabic is the base with no layer. */
+export const dialectOf = (l: Locale): Dialect => (l === "ar-EG" ? "ar-EG" : l === "ar-GULF" ? "ar-GULF" : "msa");
+/** Locale for a language choice and a dialect choice, so the two selectors stay independent. */
+export const localeFor = (language: "en" | "ar", dialect: Dialect): Locale => (language === "en" ? "en" : dialect === "msa" ? "ar" : dialect);
+/** Language tag for the document element. */
+export const htmlLang = (l: Locale) => (l === "ar-GULF" ? "ar-AE" : l);
 export const dirOf = (l: Locale): "ltr" | "rtl" => (isArabic(l) ? "rtl" : "ltr");
 /** Latin digits keep rings, times and counters aligned with the mono typeface in every language. */
-export const dateLocale = (l: Locale) => (l === "ar-EG" ? "ar-EG-u-nu-latn" : l === "ar" ? "ar-u-nu-latn" : undefined);
+export const dateLocale = (l: Locale) => (l === "ar-EG" ? "ar-EG-u-nu-latn" : l === "ar-GULF" ? "ar-AE-u-nu-latn" : l === "ar" ? "ar-u-nu-latn" : undefined);
 
 type Dict = Record<string, string>;
 interface Pattern { re: RegExp; names: string[]; out: string }
 interface Table { dict: Dict; patterns: Pattern[] }
 
 const empty = (): Table => ({ dict: {}, patterns: [] });
-const tables: Record<"ar" | "ar-EG", Table> = { ar: empty(), "ar-EG": empty() };
+const tables: Record<"ar" | "ar-EG" | "ar-GULF", Table> = { ar: empty(), "ar-EG": empty(), "ar-GULF": empty() };
 
 function compile(dict: Dict): Table {
   const patterns = Object.entries(dict)
@@ -59,11 +67,18 @@ export function registerEgyptian(...parts: Dict[]) {
   caches.clear();
 }
 
+/** Register the Gulf (Khaleeji) layer. Entries here override the base for "ar-GULF". */
+export function registerGulf(...parts: Dict[]) {
+  tables["ar-GULF"] = compile(Object.assign({}, ...parts));
+  caches.clear();
+}
+
 /** Lookup order for a locale: its own layer first, then the base. */
-const chain = (l: Locale): Table[] => (l === "ar-EG" ? [tables["ar-EG"], tables.ar] : l === "ar" ? [tables.ar] : []);
+const chain = (l: Locale): Table[] => (l === "en" ? [] : l === "ar" ? [tables.ar] : [tables[l], tables.ar]);
 
 export const hasArabic = (key: string) => key in tables.ar.dict;
 export const hasEgyptian = (key: string) => key in tables["ar-EG"].dict;
+export const hasGulf = (key: string) => key in tables["ar-GULF"].dict;
 
 function fill(template: string, params?: Record<string, string | number>) {
   return params ? template.replace(/\{(\w+)\}/g, (m, k) => (k in params ? String(params[k]) : m)) : template;

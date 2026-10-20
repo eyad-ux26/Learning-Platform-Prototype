@@ -446,7 +446,9 @@ export interface LearnerPreferences {
   /** Interface sound cues. Treated as on when absent (older saved data). */
   sound?: boolean;
   /** Interface and content language. Stored data stays English; Arabic is applied at display time. */
-  language?: "en" | "ar" | "ar-EG";
+  language?: "en" | "ar" | "ar-EG" | "ar-GULF";
+  /** The Arabic dialect last used, so switching back from English restores it. */
+  lastArabic?: "ar" | "ar-EG" | "ar-GULF";
 }
 
 export interface LearnerRecord {

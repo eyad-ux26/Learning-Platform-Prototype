@@ -4,6 +4,7 @@ import { libraryBundles } from "@/content/library";
 import { MACHINE_KEYS, localizeDeep } from "@/i18n/core";
 import "@/i18n/ar";
 import "@/i18n/eg";
+import "@/i18n/gulf";
 
 function machineValues(v: unknown, out: unknown[] = []): unknown[] {
   if (Array.isArray(v)) v.forEach((x) => machineValues(x, out));
