@@ -58,7 +58,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
   };
 
   return (
-    <div ref={root} className={cn("relative", className)} dir="ltr">
+    <div ref={root} className={cn("relative", className)}>
       <button
         ref={trigger}
         type="button"
@@ -80,11 +80,13 @@ export function LanguageSwitch({ className }: { className?: string }) {
       </button>
 
       {open && (
+        <div className="fixed inset-x-4 top-[4.25rem] z-50 sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:w-80">
         <div
           id={panelId}
           role="group"
           aria-label="Language · اللغة"
-          className="slide-in fixed inset-x-4 top-[4.25rem] z-50 rounded-2xl border border-line-strong bg-raised p-3 shadow-[0_18px_50px_rgba(0,0,0,.55)] sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:w-80"
+          dir="ltr"
+          className="slide-in rounded-2xl border border-line-strong bg-raised p-3 shadow-[0_18px_50px_rgba(0,0,0,.55)]"
         >
           <p className="px-1 pb-2 font-mono text-[11px] font-semibold text-muted">Language · اللغة</p>
           <div role="radiogroup" aria-label="Language · اللغة" className="grid grid-cols-2 gap-1 rounded-xl bg-canvas p-1">
@@ -140,6 +142,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
               </div>
             </div>
           )}
+        </div>
         </div>
       )}
     </div>
