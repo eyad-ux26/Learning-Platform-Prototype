@@ -1,11 +1,12 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, Send } from "lucide-react";
 import { walkDecision } from "@/domain/assessment";
 import type { DecisionActivity, DecisionNode, Screen } from "@/domain/types";
 import { playSfx } from "@/components/sfx";
 import { Button, Kbd, cn } from "@/components/ui";
 import { useI18n } from "@/i18n";
+import { DockLayout, useDock } from "./dock";
 import { ScreenRenderer, type HighlightMode } from "./ScreenRenderer";
 
 type Choices = { nodeId: string; choiceId: string }[];
@@ -42,7 +43,7 @@ function RouteStepper({ activity, choices, onChoices, onPending, readOnly }: { a
     ...Array.from({ length: Math.max(0, left - 1) }, (_, k) => ({ state: "todo" as const, n: walk.steps.length + 2 + k, title: "" })),
   ];
   return (
-    <ol aria-label={tr("Route")} className="flex items-center rounded-2xl border border-line bg-surface px-3.5 py-3">
+    <ol aria-label={tr("Route")} className="flex items-center rounded-2xl border border-line bg-surface px-3 py-2 lg:px-3.5 lg:py-3">
       {items.map((it, i) => {
         const dotClass = cn(
           "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-[1.5px] font-mono text-[11px] font-semibold",
@@ -74,7 +75,7 @@ function RouteStepper({ activity, choices, onChoices, onPending, readOnly }: { a
               </span>
             )}
             {it.state !== "todo" && (
-              <span className={cn("mx-1.5 min-w-0 truncate font-mono text-[11.5px] font-semibold", it.state === "current" ? "text-fg" : "text-muted")} aria-hidden>
+              <span className={cn("mx-1.5 min-w-0 truncate font-mono text-[11.5px] font-semibold", it.state === "current" ? "text-fg" : "text-muted max-sm:hidden")} aria-hidden>
                 {it.title}
               </span>
             )}
@@ -103,6 +104,7 @@ export function DecisionControls({
   onPending?: (optionId: string | undefined) => void;
 }) {
   const { tr } = useI18n();
+  const dock = useDock();
   const walk = walkDecision(activity, { choices });
   const node = activity.nodes.find((n) => n.id === walk.currentNodeId);
   const route = <RouteStepper activity={activity} choices={choices} onChoices={onChoices} onPending={onPending} readOnly={readOnly} />;
@@ -111,87 +113,105 @@ export function DecisionControls({
   const stepNo = walk.steps.length + 1;
   const total = walk.steps.length + (walk.currentNodeId ? decisionsLeft(activity, walk.currentNodeId) : 0);
   const picked = node?.choices.find((c) => c.id === pending)?.id;
+  const pickedChoice = node?.choices.find((c) => c.id === picked);
   const pick = (id: string) => {
     playSfx("pick");
     onPending?.(id);
+    // Phones: tuck the question away so the interface shows what the option touches.
+    dock.setCollapsed(true);
   };
   const decide = () => {
     if (!node || !picked) return;
     playSfx("apply");
     onChoices([...choices, { nodeId: node.id, choiceId: picked }]);
     onPending?.(undefined);
+    dock.setCollapsed(false);
   };
 
-  return (
-    <div className="space-y-3.5">
-      {route}
-      {node ? (
-        <fieldset
-          key={node.id}
-          className="animate-rise space-y-4 rounded-[22px] border-[1.5px] border-brand-strong bg-surface p-4 sm:p-5"
-          onKeyDown={(e) => {
-            if (!(e.target as HTMLElement).matches("input[type=radio]")) return;
-            if (e.key === "Enter") {
-              if (picked) {
-                e.preventDefault();
-                decide();
-              }
-              return;
-            }
-            const n = Number(e.key);
-            if (!(n >= 1 && n <= node.choices.length)) return;
+  const summary = node ? (
+    <button type="button" onClick={() => dock.setCollapsed(false)} className="flex w-full items-center gap-3 rounded-2xl border border-line bg-raised px-3 py-2.5 text-start">
+      <span className="shrink-0 font-mono text-[11px] font-semibold text-accent">{stepNo}/{total}</span>
+      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-fg">{pickedChoice ? pickedChoice.label : node.prompt}</span>
+      <span className="shrink-0 text-xs font-semibold text-accent">{tr("Change")}</span>
+    </button>
+  ) : undefined;
+
+  const body = node ? (
+    <fieldset
+      key={node.id}
+      className="animate-rise space-y-3 rounded-[22px] border-[1.5px] border-brand-strong bg-surface p-4 sm:p-5 max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:p-0 lg:space-y-4"
+      onKeyDown={(e) => {
+        if (!(e.target as HTMLElement).matches("input[type=radio]")) return;
+        if (e.key === "Enter") {
+          if (picked) {
             e.preventDefault();
-            pick(node.choices[n - 1].id);
-          }}
-        >
-          <legend className="sr-only">{node.prompt}</legend>
-          <div>
-            <p className="font-mono text-xs font-semibold text-accent">{tr("Decision {n} of {m} · {title}", { n: stepNo, m: total, title: node.title })}</p>
-            <p className="mt-1.5 font-display text-2xl font-extrabold leading-[1.1] tracking-tight text-fg" aria-hidden>
-              {node.prompt}
-            </p>
-          </div>
-          {node.facts && (
-            <dl className="flex flex-wrap gap-2">
-              {node.facts.map((f) => (
-                <div key={f.label} className="rounded-xl border border-line bg-raised px-2.5 py-1.5">
-                  <dt className="font-mono text-[10.5px] text-muted">{f.label}</dt>
-                  <dd className="text-[13.5px] font-semibold text-fg">{f.value}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          <div className="space-y-2.5">
-            {node.choices.map((c, i) => {
-              const checked = picked === c.id;
-              return (
-                <label
-                  key={c.id}
-                  className={cn(
-                    "flex cursor-pointer flex-col gap-2 rounded-2xl border-[1.5px] p-3.5 transition-[transform,border-color,background-color] hover:-translate-y-0.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent",
-                    checked ? "border-brand-strong bg-brand-deep" : "border-line bg-raised hover:border-line-strong",
-                  )}
-                >
-                  <input type="radio" className="sr-only" name={`${activity.id}-${node.id}`} value={c.id} checked={checked} onChange={() => pick(c.id)} />
-                  <span className="flex items-start justify-between gap-2.5">
-                    <span className="text-start text-[14.5px] font-semibold leading-snug text-fg">{c.label}</span>
-                    <Kbd className={cn("hidden shrink-0 sm:inline", checked && "border-white/40 text-white")}>{i + 1}</Kbd>
-                  </span>
-                  <span className={cn("font-mono text-[11.5px]", checked ? "text-accent-strong" : "text-muted")}>{c.detail}</span>
-                </label>
-              );
-            })}
-          </div>
-          <Button variant="primary" size="lg" className="w-full" disabled={!picked} onClick={decide}>
-            {tr("Decide")}
-            <span aria-hidden className="rounded-md bg-black/20 px-1.5 font-mono text-xs font-semibold">↵</span>
-          </Button>
-        </fieldset>
-      ) : walk.finished ? (
-        <p className="rounded-lg border border-ok/30 bg-ok-bg p-3 text-sm text-fg">{tr("You reached the end of the scenario. Submit your decisions, or change any of them above.")}</p>
-      ) : null}
-    </div>
-  );
+            decide();
+          }
+          return;
+        }
+        const n = Number(e.key);
+        if (!(n >= 1 && n <= node.choices.length)) return;
+        e.preventDefault();
+        pick(node.choices[n - 1].id);
+      }}
+    >
+      <legend className="sr-only">{node.prompt}</legend>
+      <div>
+        <p className="font-mono text-xs font-semibold text-accent">{tr("Decision {n} of {m} · {title}", { n: stepNo, m: total, title: node.title })}</p>
+        <p className="mt-1 font-display text-xl font-extrabold leading-[1.1] tracking-tight text-fg lg:mt-1.5 lg:text-2xl" aria-hidden>
+          {node.prompt}
+        </p>
+      </div>
+      {node.facts && (
+        <dl className="flex flex-wrap gap-2">
+          {node.facts.map((f) => (
+            <div key={f.label} className="rounded-xl border border-line bg-raised px-2.5 py-1.5">
+              <dt className="font-mono text-[10.5px] text-muted">{f.label}</dt>
+              <dd className="text-[13.5px] font-semibold text-fg">{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <div className="space-y-2">
+        {node.choices.map((c, i) => {
+          const checked = picked === c.id;
+          return (
+            <label
+              key={c.id}
+              className={cn(
+                "flex cursor-pointer flex-col gap-1.5 rounded-2xl border-[1.5px] p-3 transition-[transform,border-color,background-color] hover:-translate-y-0.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent lg:gap-2 lg:p-3.5",
+                checked ? "border-brand-strong bg-brand-deep" : "border-line bg-raised hover:border-line-strong",
+              )}
+            >
+              <input type="radio" className="sr-only" name={`${activity.id}-${node.id}`} value={c.id} checked={checked} onChange={() => pick(c.id)} />
+              <span className="flex items-start justify-between gap-2.5">
+                <span className="text-start text-[14.5px] font-semibold leading-snug text-fg">{c.label}</span>
+                <Kbd className={cn("hidden shrink-0 sm:inline", checked && "border-white/40 text-white")}>{i + 1}</Kbd>
+              </span>
+              <span className={cn("font-mono text-[11.5px]", checked ? "text-accent-strong" : "text-muted")}>{c.detail}</span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  ) : walk.finished ? (
+    <p className="rounded-lg border border-ok/30 bg-ok-bg p-3 text-sm text-fg">{tr("You reached the end of the scenario. Submit your decisions, or change any of them above.")}</p>
+  ) : null;
+
+  const foot = node ? (
+    <>
+      <Button variant="primary" size="lg" className="w-full max-lg:h-11" disabled={!picked} onClick={decide}>
+        {tr("Decide")}
+        <span aria-hidden className="rounded-md bg-black/20 px-1.5 font-mono text-xs font-semibold max-sm:hidden">↵</span>
+      </Button>
+    </>
+  ) : walk.finished ? (
+    <Button variant="primary" size="lg" className="h-11 w-full lg:hidden" onClick={() => dock.submit?.()}>
+      <Send size={15} aria-hidden /> {tr("Submit response")}
+    </Button>
+  ) : undefined;
+
+  return <DockLayout head={route} summary={summary} body={body} foot={foot} />;
 }
 
 /** Chat thread for the Brief column: the situation, the learner's pick and its consequence for every step, then the current situation. */
@@ -261,7 +281,7 @@ export function DecisionStage({ activity, choices, pending, reviewNodeId }: { ac
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-fg">{tr("Situation")}</h3>
+        <h3 className="text-sm font-semibold text-fg max-lg:hidden">{tr("Situation")}</h3>
         {own && screenNode?.choices.some((c) => c.affects?.length) && (
           <p className="font-mono text-xs text-subtle">{considering ? tr("Pick an option to see what it touches.") : tr("What your choice touched")}</p>
         )}

@@ -352,6 +352,31 @@ await journey("Responsive layouts (1024 and 390)", async () => {
   await page.setViewportSize({ width: 1440, height: 900 });
 });
 
+await journey("K. Phone: the interface keeps the screen and Next stays in reach", async () => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await switchTo("Tomás");
+  await go("/paths/calibrated-trust/practice/bench-deadline");
+  await page.getByRole("button", { name: "Continue" }).click();
+  const fits = () => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1);
+  check(await fits(), "the workspace should not scroll the page");
+  const next = page.getByRole("button", { name: /Next decision/ }).last();
+  check(await next.isVisible(), "the primary action should be visible with the question open");
+  const handle = page.getByRole("button", { name: "Decisions", exact: true });
+  check((await handle.getAttribute("aria-expanded")) === "true", "the question should start open");
+  await page.locator("fieldset label").first().click();
+  await page.waitForFunction(() => document.querySelector("button[aria-expanded]")?.getAttribute("aria-expanded") === "false");
+  const preview = page.getByRole("group", { name: /interface preview/i });
+  const box = await preview.boundingBox();
+  check(box && box.height > 300, `the interface should get most of the screen once a choice is made (${box?.height})`);
+  check(await next.isVisible(), "Next should stay visible after choosing");
+  await shot("r-mobile-bench-collapsed");
+  await next.click();
+  await page.getByText(/step 2 of 6/).waitFor();
+  check((await handle.getAttribute("aria-expanded")) === "true", "the next question should open");
+  check(await fits(), "the page should still not scroll");
+  await page.setViewportSize({ width: 1440, height: 900 });
+});
+
 await browser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} journeys passed.`);

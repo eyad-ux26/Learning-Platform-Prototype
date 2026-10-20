@@ -107,7 +107,7 @@ export function LearnerShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="border-t border-line">
+      <footer className={cn("border-t border-line", inWorkspace && "max-lg:hidden")}>
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-xs text-subtle sm:px-6">
           <span>{tr(t.product.prototypeNote)}</span>
           <Link href="/demo" className="ms-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 hover:text-fg">

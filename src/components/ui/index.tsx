@@ -221,7 +221,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, className
             value === tab.id ? "bg-brand-deep text-white" : "text-muted hover:text-fg",
           )}
         >
-          {numbered && <span aria-hidden className={cn("flex h-5 w-5 items-center justify-center rounded-full font-mono text-[11px] text-white", value === tab.id ? "bg-brand-strong" : "bg-line-strong")}>{i + 1}</span>}
+          {numbered && <span aria-hidden className={cn("flex h-5 w-5 max-lg:hidden items-center justify-center rounded-full font-mono text-[11px] text-white", value === tab.id ? "bg-brand-strong" : "bg-line-strong")}>{i + 1}</span>}
           {tab.label}
           {tab.count !== undefined && <span className="rounded-full bg-canvas px-1.5 text-xs text-subtle">{tab.count}</span>}
         </button>

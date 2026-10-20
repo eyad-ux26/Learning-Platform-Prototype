@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, BookOpen, CheckCircle2, ChevronDown, Clock, HelpCircle, Lightbulb, Lock, RotateCcw, Save, Send } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, ChevronDown, Clock, HelpCircle, Lightbulb, Lock, RotateCcw, Save, Send } from "lucide-react";
 import { checkCompleteness, emptyResponse, evaluate, skillsAssessedBy, walkDecision } from "@/domain/assessment";
 import type { Activity, ActivityResponse, Attempt, DesignDimension, Evaluation, WorkDraft } from "@/domain/types";
 import { t } from "@/i18n/en";
@@ -16,6 +16,7 @@ import { playSfx } from "@/components/sfx";
 import { DesignBenchControls, DesignBenchStage } from "./DesignBench";
 import { CritiqueControls, CritiqueStage, critiqueMarks } from "./Critique";
 import { DecisionControls, DecisionStage, DecisionThread } from "./Decision";
+import { DockContext } from "./dock";
 import { FeedbackPanel } from "./Feedback";
 import { behavioursFor, initialPreviewState, type PreviewState } from "./ProposalPreview";
 
@@ -52,7 +53,8 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   const [benchDim, setBenchDim] = useState<DesignDimension | undefined>();
   const [pending, setPending] = useState<string | undefined>();
   const [reviewNode, setReviewNode] = useState<string | undefined>();
-  const [sheetOpen, setSheetOpen] = useState(!!usableDraft);
+  const [collapsed, setCollapsed] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
   const [confirmReveal, setConfirmReveal] = useState(false);
   const [confirmHint, setConfirmHint] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -128,8 +130,8 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
     const selected = (ui.selected as string | undefined) ?? undefined;
     const onSelect = (id: string) => {
       updateUi({ selected: id || undefined });
-      // Picking an element in the preview brings up its question (the sheet, below lg).
-      if (id && phase === "working") setSheetOpen(true);
+      // Picking an element in the preview brings up its question (the dock, below lg).
+      if (id && phase === "working") setCollapsed(false);
     };
     const onReview = (id: string, patch: (typeof response.reviews)[string]) => updateResponse({ template: "critique", reviews: { ...response.reviews, [id]: patch } });
     controls = <CritiqueControls activity={activity} reviews={response.reviews} selected={selected} onSelect={onSelect} onReview={onReview} readOnly={readOnly} />;
@@ -146,7 +148,8 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
     if (!c.complete) {
       setMissing(c.missing);
       setSection("stage");
-      setSheetOpen(true);
+      setCollapsed(false);
+      stageRef.current?.scrollTo({ top: 0 });
       return;
     }
     let ev: Evaluation;
@@ -287,26 +290,54 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   // < lg: one section at a time. lg: Brief alone, or response + interface side by side. xl: all three columns.
   const vis = (s: Section) => (section === s ? "block" : "hidden");
   const work = section !== "brief" ? "lg:block" : "";
+  // Below lg, while working, the workspace is a fixed-height app screen: top bar, tabs, the interface, and a dock with the current question.
+  const app = phase === "working";
+  const dock = { collapsed, setCollapsed, submit: doSubmit };
+  // Below lg the incomplete-response notice goes above the interface, from lg it stays with the questions.
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const update = () => setNarrow(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  // Keep what the current question is about in view inside the scrolling interface (below lg only).
+  useEffect(() => {
+    if (!app || section === "brief" || typeof window === "undefined" || !window.matchMedia("(max-width: 1023px)").matches) return;
+    const id = requestAnimationFrame(() => stageRef.current?.querySelector<HTMLElement>(".hl")?.scrollIntoView({ block: "center", behavior: "smooth" }));
+    return () => cancelAnimationFrame(id);
+  }, [app, section, benchDim, ui.selected, pending, collapsed]);
+
+  const missingNotice = missing && (
+    <Notice tone="warn" title={tr(t.practice.incomplete)}>
+      <ul className="list-disc space-y-0.5 ps-4">
+        {L(missing).slice(0, 6).map((m, i) => <li key={i}>{m}</li>)}
+        {missing.length > 6 && <li>{tr("and {n} more", { n: missing.length - 6 })}</li>}
+      </ul>
+    </Notice>
+  );
 
   return (
-    <div className={cn("mx-auto max-w-[1440px] px-4 pt-4 sm:px-6 lg:pb-10", phase === "working" ? (sheetOpen ? "pb-[calc(52vh+5rem)]" : "pb-44") : "pb-28")}>
-      {/* Header */}
-      <div className="flex flex-wrap items-start gap-3">
-        <Link href={backHref} className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line text-muted hover:text-fg" aria-label={tr("Back")}>
+    <div className={cn("mx-auto max-w-[1440px] px-4 sm:px-6", app ? "flex h-[calc(100dvh-3.9rem)] flex-col overflow-hidden pt-2 lg:block lg:h-auto lg:overflow-visible lg:pb-10 lg:pt-4" : "pb-28 pt-4 lg:pb-10")}>
+      {/* Header: a compact one-line bar below lg while working */}
+      <div className="flex items-start gap-3 max-lg:items-center max-lg:gap-2 lg:flex-wrap">
+        <Link href={backHref} className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-muted hover:text-fg max-lg:mt-0" aria-label={tr("Back")}>
           <ArrowLeft size={16} />
         </Link>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-accent">
+          <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-accent max-lg:flex-nowrap max-lg:overflow-hidden max-lg:whitespace-nowrap max-lg:text-[11px]">
             <span>{tr(TEMPLATE_LABEL[activity.template])}</span>
+            <span aria-hidden className="max-lg:hidden">·</span>
+            <span className="max-lg:hidden">{activity.contextLabel}</span>
             <span aria-hidden>·</span>
-            <span>{activity.contextLabel}</span>
-            <span aria-hidden>·</span>
-            <span className="inline-flex items-center gap-1"><Clock size={12} aria-hidden /> {tr("about {n} min", { n: activity.estimatedMinutes })}</span>
-            {view.bundle.meta.freeSampleActivityIds.includes(activity.id) && <Badge tone="accent">{tr(t.access.free)}</Badge>}
-            {activity.kind === "alternative" && <Badge>{tr("Alternative practice")}</Badge>}
+            <span className="inline-flex items-center gap-1"><Clock size={12} aria-hidden className="max-lg:hidden" /> {tr("about {n} min", { n: activity.estimatedMinutes })}</span>
+            {view.bundle.meta.freeSampleActivityIds.includes(activity.id) && <Badge tone="accent" className="max-lg:hidden">{tr(t.access.free)}</Badge>}
+            {activity.kind === "alternative" && <Badge className="max-lg:hidden">{tr("Alternative practice")}</Badge>}
             {mode === "preview" && <Badge tone="ai">{tr("Admin preview · v{version}", { version })}</Badge>}
           </div>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-fg sm:text-3xl">{activity.title}</h1>
+          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-fg sm:text-3xl max-lg:mt-0 max-lg:truncate max-lg:text-[17px] max-lg:leading-tight">{activity.title}</h1>
         </div>
         <div className="flex items-center gap-2">
           {mode === "learner" && (
@@ -314,36 +345,48 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
               <CheckCircle2 size={13} aria-hidden /> {savedAt ? tr(t.practice.savedLocally) : tr("Not started")}
             </span>
           )}
-          <Button variant="ghost" size="sm" onClick={() => setHelpOpen(true)} aria-haspopup="dialog">
+          <Button variant="ghost" size="sm" onClick={() => setHelpOpen(true)} aria-haspopup="dialog" className={cn(app && "max-lg:hidden")}>
             <HelpCircle size={15} aria-hidden /> {tr(t.practice.help)}
           </Button>
+          {app && (
+            <div className="flex items-center gap-1.5 lg:hidden">
+              <button type="button" onClick={() => setHelpOpen(true)} aria-haspopup="dialog" aria-label={tr(t.practice.help)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-muted hover:text-fg">
+                <HelpCircle size={16} aria-hidden />
+              </button>
+              <button type="button" onClick={() => setConfirmReset(true)} aria-label={tr(t.practice.reset)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-muted hover:text-fg">
+                <RotateCcw size={15} aria-hidden />
+              </button>
+              {mode === "learner" && (
+                <button type="button" onClick={() => { persist({}); router.push(backHref); }} aria-label={tr(t.practice.saveExit)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-muted hover:text-fg">
+                  <Save size={15} aria-hidden />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {(hintsUsed || solutionRevealed) && phase === "working" && (
-        <p className="mt-3 text-xs text-warn">
+        <p className="mt-1 truncate text-[11px] text-warn lg:mt-3 lg:whitespace-normal lg:text-xs">
           {solutionRevealed ? tr("Solution revealed: this attempt will be practice-only.") : tr("Hint used: this attempt will count, but not as independent.")}
         </p>
       )}
 
       {/* Mobile and tablet section tabs */}
-      <div className="sticky top-16 z-30 -mx-4 mt-4 bg-canvas/95 px-4 py-2 xl:hidden">
-        <Tabs
-          numbered
-          label={tr("Workspace sections")}
-          tabs={tabs}
-          value={section}
-          onChange={(v) => {
-            setSection(v);
-            // Below lg the questions are a sheet: open it on Live, tuck it away while reading the brief.
-            if (phase === "working") setSheetOpen(v !== "brief");
-          }}
-        />
+      <div className={cn("sticky top-16 z-30 -mx-4 mt-4 bg-canvas/95 px-4 py-2 xl:hidden", app && "max-lg:static max-lg:mt-1 max-lg:py-1.5")}>
+        <Tabs numbered label={tr("Workspace sections")} tabs={tabs} value={section} onChange={setSection} />
       </div>
 
-      <div className={cn("mt-4 grid gap-6", "lg:grid-cols-[minmax(320px,400px)_1fr] xl:grid-cols-[300px_minmax(340px,400px)_1fr]")}>
-        <aside className={cn(vis("brief"), "lg:col-span-2 xl:col-span-1 xl:block")} aria-label={tr("Brief")}>
+      <div className={cn("mt-4 grid gap-6", "lg:grid-cols-[minmax(320px,400px)_1fr] xl:grid-cols-[300px_minmax(340px,400px)_1fr]", app && "max-lg:mt-1 max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:gap-0")}>
+        <aside className={cn(vis("brief"), "lg:col-span-2 xl:col-span-1 xl:block", app && "max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:pt-2")} aria-label={tr("Brief")}>
           <div className="xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pe-1"><ColumnTag n={1} pulse={phase === "working" && !hintsUsed}>{tr("Read first")}</ColumnTag>{brief}</div>
+          {app && (
+            <div className="sticky bottom-0 -mx-4 mt-4 bg-gradient-to-t from-canvas via-canvas to-transparent px-4 pb-3 pt-6 lg:hidden">
+              <Button variant="primary" size="lg" className="w-full" onClick={() => setSection("stage")}>
+                {tr("Continue")} <ArrowRight size={16} aria-hidden />
+              </Button>
+            </div>
+          )}
         </aside>
 
         <section
@@ -351,10 +394,9 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
             phase === "feedback"
               ? cn(vis("feedback"), work, "xl:block")
               : cn(
-                  // Working: a bottom sheet below lg, a plain column from lg.
-                  "fixed inset-x-0 bottom-[4.5rem] z-30 rounded-t-3xl border-t-[1.5px] border-brand-strong bg-surface px-4 pb-4 pt-2 shadow-[0_-12px_32px_rgba(0,0,0,0.45)]",
-                  "lg:static lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none",
-                  section === "brief" && "lg:hidden",
+                  // Working: a dock under the interface below lg, a plain column from lg.
+                  "max-lg:order-3 max-lg:-mx-4 max-lg:flex max-lg:max-h-[min(50dvh,24rem)] max-lg:flex-none max-lg:flex-col max-lg:rounded-t-3xl max-lg:border-t-[1.5px] max-lg:border-brand-strong max-lg:bg-surface max-lg:px-4 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-lg:pt-1 max-lg:shadow-[0_-12px_32px_rgba(0,0,0,0.45)] sm:max-lg:-mx-6 sm:max-lg:px-6",
+                  section === "brief" && "max-lg:hidden lg:hidden",
                   "xl:block",
                 ),
           )}
@@ -363,17 +405,17 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
           {phase === "working" && (
             <button
               type="button"
-              onClick={() => setSheetOpen((o) => !o)}
-              aria-expanded={sheetOpen}
-              className="mx-auto mb-1 flex w-full flex-col items-center gap-1 py-1 lg:hidden"
+              onClick={() => setCollapsed((o) => !o)}
+              aria-expanded={!collapsed}
+              className="mx-auto mb-0.5 flex w-full flex-none flex-col items-center gap-0.5 py-1 lg:hidden"
             >
               <span aria-hidden className="h-1 w-10 rounded-full bg-line-strong" />
               <span className="flex items-center gap-1 font-mono text-[11px] font-semibold text-accent">
-                {tr(controlsLabel)} <ChevronDown size={12} aria-hidden className={cn("transition-transform", !sheetOpen && "rotate-180")} />
+                {tr(controlsLabel)} <ChevronDown size={12} aria-hidden className={cn("transition-transform", collapsed && "rotate-180")} />
               </span>
             </button>
           )}
-          <div className={cn(phase === "working" && !sheetOpen && "hidden lg:block", phase === "working" && "max-h-[46vh] overflow-y-auto lg:max-h-none lg:overflow-visible")}>
+          <div className={cn(phase === "working" && "max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col")}>
             <ColumnTag n={2}>{phase === "feedback" ? tr("Ship review") : tr(controlsLabel)}</ColumnTag>
             {phase === "feedback" && result ? (
               <div ref={feedbackRef}>
@@ -389,25 +431,23 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
                 />
               </div>
             ) : (
-              <div className="space-y-4">
-                {missing && (
-                  <Notice tone="warn" title={tr(t.practice.incomplete)}>
-                    <ul className="list-disc space-y-0.5 ps-4">
-                      {L(missing).slice(0, 6).map((m, i) => <li key={i}>{m}</li>)}
-                      {missing.length > 6 && <li>{tr("and {n} more", { n: missing.length - 6 })}</li>}
-                    </ul>
-                  </Notice>
-                )}
-                {controls}
+              <div className="space-y-4 max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:space-y-0">
+                {missingNotice && !narrow && <div>{missingNotice}</div>}
+                <DockContext.Provider value={dock}>{controls}</DockContext.Provider>
               </div>
             )}
           </div>
         </section>
 
-        <section className={cn(section === "brief" ? "hidden xl:block" : phase === "feedback" && section === "feedback" ? "hidden lg:block" : "block")} aria-label={tr("Interface")}>
+        <section
+          ref={stageRef}
+          className={cn(section === "brief" ? "hidden xl:block" : phase === "feedback" && section === "feedback" ? "hidden lg:block" : "block", app && "max-lg:order-2 max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pb-3")}
+          aria-label={tr("Interface")}
+        >
           <div className="lg:sticky lg:top-20">
             <ColumnTag n={3}>{tr("Live")}</ColumnTag>
-            <div className="relative p-3">
+            {missingNotice && narrow && <div className="mb-3">{missingNotice}</div>}
+            <div className="relative p-3 max-lg:px-0 max-lg:py-2">
               <span key={sig} aria-hidden className="sel-snap pointer-events-none absolute inset-0 z-10 hidden rounded-[22px] outline outline-2 outline-offset-4 outline-brand-strong/70 lg:block" />
               {stage}
             </div>
@@ -415,9 +455,9 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
         </section>
       </div>
 
-      {/* Action bar */}
+      {/* Action bar (lg and up; below lg the dock carries Next / Decide / Submit) */}
       {phase === "working" && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-canvas/95 backdrop-blur lg:static lg:mt-8 lg:border-0 lg:bg-transparent">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-canvas/95 backdrop-blur max-lg:hidden lg:static lg:mt-8 lg:border-0 lg:bg-transparent">
           <div className="mx-auto flex max-w-[1440px] items-center gap-2 px-4 py-3 sm:px-6 lg:justify-end lg:px-0">
             <Button variant="ghost" onClick={() => setConfirmReset(true)}>
               <RotateCcw size={15} aria-hidden /> <span className="hidden sm:inline">{tr(t.practice.reset)}</span>

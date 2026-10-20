@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, ArrowRight, BadgeCheck, Ban, ClipboardCheck, Clock, Eye, FilePen, Files, GitCompare, Hash, History, Info, ListChecks, MessageSquareQuote, MousePointerClick, PenLine,
-  Percent, RefreshCw, Rows3, ScanSearch, Settings, ShieldAlert, ShieldCheck, Sparkles, SquareDashed, TextCursorInput, Undo2, Zap, type LucideIcon,
+  ArrowLeft, ArrowRight, BadgeCheck, Ban, Check, ClipboardCheck, Clock, Eye, FilePen, Files, GitCompare, Hash, History, Info, ListChecks, MessageSquareQuote, MousePointerClick, PenLine,
+  Percent, RefreshCw, Rows3, ScanSearch, Send, Settings, ShieldAlert, ShieldCheck, Sparkles, SquareDashed, TextCursorInput, Undo2, Zap, type LucideIcon,
 } from "lucide-react";
 import type { Behaviour, DesignBenchActivity, DesignDimension, Evaluation } from "@/domain/types";
 import { playSfx } from "@/components/sfx";
 import { Kbd, cn } from "@/components/ui";
+import { DockLayout, useDock } from "./dock";
 import { useI18n } from "@/i18n";
 import { ProposalPreview, type PreviewState } from "./ProposalPreview";
 
@@ -66,20 +67,28 @@ export function DesignBenchControls({
   useEffect(() => {
     onStepRef.current?.(activity.decisions[step].dimension);
   }, [activity, step]);
+  const dock = useDock();
   const go = (i: number) => {
     playSfx("tap");
     setPicked(Math.max(0, Math.min(total - 1, i)));
     setTip(null);
+    dock.setCollapsed(false);
   };
   const choose = (optionId: string) => {
     if (readOnly) return;
     playSfx("pick");
     onSelect(d.id, optionId);
+    // Phones: tuck the question away so the interface shows what the choice did.
+    dock.setCollapsed(true);
   };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between font-mono text-xs text-muted" aria-live="polite">
+  const chosenHere = d.options.find((o) => o.id === selections[d.id]);
+  const lastStep = step === total - 1;
+  const canAdvance = !!selections[d.id];
+
+  const head = (
+    <>
+      <div className="flex items-center justify-between font-mono text-xs text-muted max-lg:sr-only" aria-live="polite">
         <span>{tr("{n} of {m} decisions made", { n: done, m: total })}</span>
         <span className="flex gap-1" aria-hidden>
           {activity.decisions.map((x, i) => (
@@ -88,8 +97,32 @@ export function DesignBenchControls({
         </span>
       </div>
 
+      {/* Phones: one row of step chips. */}
+      <ol aria-label={tr("Decisions")} className="flex items-center gap-1.5 overflow-x-auto pb-0.5 lg:hidden">
+        {activity.decisions.map((x, i) => {
+          const chosen = x.options.find((o) => o.id === selections[x.id]);
+          const dm = DIMENSION[x.dimension];
+          const cur = i === step;
+          return (
+            <li key={x.id} className="flex-1">
+              <button
+                type="button"
+                onClick={() => go(i)}
+                aria-current={cur ? "step" : undefined}
+                aria-label={`${i + 1} · ${tr(dm.label)} · ${chosen ? chosen.label : tr("Not chosen")}`}
+                className={cn("flex h-8 w-full min-w-8 items-center justify-center gap-1 rounded-full border-[1.5px] font-mono text-[11px] font-semibold transition-colors", cur ? "border-brand-strong bg-brand-strong text-white" : chosen ? "border-solid" : "border-dashed border-line-strong text-muted")}
+                style={!cur && chosen ? { borderColor: dm.hue, color: dm.hue, background: `${dm.hue}1a` } : undefined}
+              >
+                {chosen && !cur ? <Check size={13} strokeWidth={3} aria-hidden /> : null}
+                {i + 1}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+
       {/* Layers panel: every decision, what you chose, jump to any. */}
-      <ol aria-label={tr("Decisions")} className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <ol aria-label={tr("Decisions")} className="hidden overflow-hidden rounded-2xl border border-line bg-surface lg:block">
         {activity.decisions.map((x, i) => {
           const chosen = x.options.find((o) => o.id === selections[x.id]);
           const dm = DIMENSION[x.dimension];
@@ -111,7 +144,19 @@ export function DesignBenchControls({
           );
         })}
       </ol>
+    </>
+  );
 
+  const summary = (
+    <button type="button" onClick={() => dock.setCollapsed(false)} className="flex w-full items-center gap-3 rounded-2xl border border-line bg-raised px-3 py-2.5 text-start">
+      <span className="shrink-0 font-mono text-[11px] font-semibold" style={{ color: dim.hue }}>{tr(dim.label)} {step + 1}/{total}</span>
+      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-fg">{chosenHere ? chosenHere.label : d.prompt}</span>
+      <span className="shrink-0 text-xs font-semibold text-accent">{tr("Change")}</span>
+    </button>
+  );
+
+  const body = (
+    <>
       <fieldset
         key={d.id}
         disabled={readOnly}
@@ -124,8 +169,8 @@ export function DesignBenchControls({
         }}
       >
         <legend className="font-mono text-xs font-semibold" style={{ color: dim.hue }}>{tr("{dim} · step {n} of {m}", { dim: tr(dim.label), n: step + 1, m: total })}</legend>
-        <h3 className="font-display text-2xl font-extrabold leading-tight tracking-tight text-fg">{d.prompt}</h3>
-        <div className="grid grid-cols-2 gap-2.5">
+        <h3 className="font-display text-xl font-extrabold leading-tight tracking-tight text-fg lg:text-2xl">{d.prompt}</h3>
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 lg:gap-2.5">
           {d.options.map((o, i) => {
             const checked = selections[d.id] === o.id;
             const Icon = ICON[o.behaviour];
@@ -133,24 +178,24 @@ export function DesignBenchControls({
               <div key={o.id} className="relative">
                 <label
                   className={cn(
-                    "flex min-h-28 cursor-pointer flex-col justify-between gap-3 rounded-2xl border-[1.5px] p-3 transition-[transform,border-color,background-color] hover:-translate-y-0.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent",
+                    "flex min-h-[54px] cursor-pointer items-center gap-3 rounded-2xl border-[1.5px] p-3 pe-11 transition-[transform,border-color,background-color] hover:-translate-y-0.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent lg:min-h-28 lg:flex-col lg:items-stretch lg:justify-between lg:gap-3 lg:pe-3",
                     checked ? "border-brand-strong bg-brand-deep text-white" : "border-line bg-surface text-fg hover:border-line-strong",
                     readOnly && "cursor-default hover:translate-y-0",
                   )}
                 >
                   <input type="radio" className="sr-only" name={`${activity.id}-${d.id}`} value={o.id} checked={checked} onChange={() => choose(o.id)} />
-                  <span className="flex items-center justify-between">
-                    <Icon size={22} aria-hidden style={{ color: checked ? "#fff" : dim.hue }} />
+                  <span className="flex shrink-0 items-center justify-between">
+                    <Icon size={20} aria-hidden style={{ color: checked ? "#fff" : dim.hue }} />
                     <Kbd className={cn("hidden sm:inline", checked && "border-white/40 text-white")}>{i + 1}</Kbd>
                   </span>
-                  <span className="text-sm font-semibold leading-snug">{o.label}</span>
+                  <span className="min-w-0 flex-1 text-[13.5px] font-semibold leading-snug lg:flex-none lg:pe-5 lg:text-sm">{o.label}</span>
                 </label>
                 <button
                   type="button"
                   onClick={() => setTip(tip === o.id ? null : o.id)}
                   aria-expanded={tip === o.id}
                   aria-label={tr("Trade-offs: {label}", { label: o.label })}
-                  className="absolute bottom-2 end-2 flex h-6 w-6 items-center justify-center rounded-md border border-line-strong bg-canvas/60 font-mono text-xs text-muted hover:text-fg"
+                  className="absolute end-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md border border-line-strong bg-canvas/60 font-mono text-xs text-muted hover:text-fg lg:bottom-2 lg:top-auto lg:h-6 lg:w-6 lg:translate-y-0"
                 >
                   ±
                 </button>
@@ -164,23 +209,37 @@ export function DesignBenchControls({
             {d.options.find((o) => o.id === tip)?.tradeoff}
           </p>
         )}
-        <div className="flex gap-2">
-          <button type="button" onClick={() => go(step - 1)} disabled={step === 0} aria-label={tr("Previous decision")} className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-raised text-muted hover:text-fg disabled:opacity-40">
-            <ArrowLeft size={16} aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={() => go(step + 1)}
-            disabled={step === total - 1 || !selections[d.id]}
-            className={cn("flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors", selections[d.id] && step < total - 1 ? "bg-brand text-white hover:bg-brand-strong" : "bg-line text-subtle")}
-          >
-            {step === total - 1 ? tr("Last decision") : tr("Next decision")} <ArrowRight size={15} aria-hidden />
-          </button>
-        </div>
       </fieldset>
-      {evaluation && <p className="text-xs text-subtle">{tr("Your submitted choices are shown. Use “Revise and resubmit” to change them.")}</p>}
+      {evaluation && <p className="mt-3 text-xs text-subtle">{tr("Your submitted choices are shown. Use “Revise and resubmit” to change them.")}</p>}
+    </>
+  );
+
+  const foot = readOnly ? undefined : (
+    <div className="flex gap-2">
+      <button type="button" onClick={() => go(step - 1)} disabled={step === 0} aria-label={tr("Previous decision")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-raised text-muted hover:text-fg disabled:opacity-40">
+        <ArrowLeft size={16} aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={() => go(step + 1)}
+        disabled={lastStep || !canAdvance}
+        className={cn("h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors max-lg:hidden lg:flex", canAdvance && !lastStep ? "bg-brand text-white hover:bg-brand-strong" : "bg-line text-subtle")}
+      >
+        {lastStep ? tr("Last decision") : tr("Next decision")} <ArrowRight size={15} aria-hidden />
+      </button>
+      {/* Phones: the one primary action, always in reach. */}
+      <button
+        type="button"
+        onClick={() => (lastStep ? dock.submit?.() : go(step + 1))}
+        disabled={!canAdvance}
+        className={cn("flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors lg:hidden", canAdvance ? "bg-brand-strong text-white" : "bg-line text-subtle")}
+      >
+        {lastStep ? <><Send size={15} aria-hidden /> {tr("Submit response")}</> : <>{tr("Next decision")} <ArrowRight size={15} aria-hidden /></>}
+      </button>
     </div>
   );
+
+  return <DockLayout head={head} summary={summary} body={body} foot={foot} />;
 }
 
 export function DesignBenchStage({
@@ -202,7 +261,7 @@ export function DesignBenchStage({
   const { tr } = useI18n();
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 max-lg:hidden">
         <h3 className="text-sm font-semibold text-fg">{tr("Interface preview")}</h3>
         <p className="text-xs text-subtle">{tr("Interactive. Try it the way a user would.")}</p>
       </div>
