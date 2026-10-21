@@ -79,7 +79,8 @@ function RouteStepper({ activity, choices, onChoices, onPending, readOnly }: { a
                 {it.title}
               </span>
             )}
-            {i < items.length - 1 && <span aria-hidden className={cn("mx-1 h-0.5 min-w-2 flex-1 rounded-full", it.state === "done" ? "bg-ok" : "bg-line")} />}
+            {/* Long routes (more than six decisions) tighten the connectors so every step fits on a phone. */}
+            {i < items.length - 1 && <span aria-hidden className={cn("h-0.5 flex-1 rounded-full", items.length > 6 ? "mx-0.5 min-w-1 sm:mx-1 sm:min-w-2" : "mx-1 min-w-2", it.state === "done" ? "bg-ok" : "bg-line")} />}
           </li>
         );
       })}

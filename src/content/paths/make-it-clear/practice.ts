@@ -1,0 +1,1191 @@
+import type { CritiqueActivity, DecisionActivity, Screen } from "@/domain/types";
+import { MIC_ID } from "./skills";
+
+/**
+ * PATH-010 practice activities A01–A06. All organisations, people and screens are fictional teaching fixtures.
+ * The path file specifies open responses (priority boards, layout records, test cards); here each is rendered with
+ * the platform's existing Decision Scenario and Critique templates, so learners choose between authored responses.
+ */
+
+const APP = "Riverside Workshops";
+
+/** Fixture W1, in the page's current order: promotion first, then W1a–W1h. */
+const w1Screen = (title: string): Screen => ({
+  app: APP,
+  title,
+  blocks: [
+    { type: "appbar", app: APP, title },
+    { type: "banner", tone: "info", text: "Photo · “Learn together”", hotspot: "w1i" },
+    { type: "buttons", buttons: [{ label: "Get the monthly newsletter", variant: "primary" }], hotspot: "w1j" },
+    { type: "heading", text: "Sketch Your First App", hotspot: "w1a" },
+    { type: "field", label: "Date", value: "Tuesday 17 November, 18:00–20:00", hotspot: "w1b" },
+    { type: "field", label: "Location", value: "Riverside Learning Hub, Room 2", hotspot: "w1c" },
+    { type: "field", label: "Price", value: "Free", hotspot: "w1d" },
+    { type: "badge", tone: "success", text: "4 places left", hotspot: "w1e" },
+    { type: "buttons", buttons: [{ label: "Reserve a place", variant: "primary" }], hotspot: "w1f" },
+    { type: "text", muted: true, text: "Cancel up to 24 hours before the start", hotspot: "w1g" },
+    { type: "link", text: "View step-free access details", hotspot: "w1h" },
+    { type: "banner", tone: "warn", text: "Session full · Join the waiting list or see the 24 November session", hotspot: "fx-full" },
+  ],
+});
+
+export const micPriority: DecisionActivity = {
+  id: "mic-a01-priority",
+  pathId: MIC_ID,
+  template: "decision",
+  title: "Find the next useful thing",
+  contextLabel: "Workshop booking page",
+  contextKey: "workshop-booking",
+  kind: "baseline",
+  estimatedMinutes: 10,
+  scenario:
+    "Sam can attend only after 17:00 and wants to reserve one free beginner workshop next week. The page for “Sketch Your First App” currently opens with a photo caption and a newsletter invitation, followed by the session details in ID order. All dates are fixture dates, not a live calendar.",
+  task: "Help Sam decide whether this session fits, then act. Decide what leads, where each remaining item belongs, and which condition would change your order.",
+  constraints: [
+    "Title, date, location, price, availability, Reserve, the cancellation condition and the access link stay available.",
+    "Date, location, price, availability and the cancellation condition must be discoverable before committing.",
+    "The newsletter is never required to reserve. No content may be deleted or invented.",
+  ],
+  criteria: ["mic-c1-complete", "mic-c1-prominence"],
+  relatedConcepts: ["mic-l01-decision", "mic-l02-priority"],
+  hints: ["What facts determine whether Sam can attend?", "Compare the effect of the time with the photo caption."],
+  solution:
+    "Decide now: title, date, location, price, availability and Reserve. Supporting: the cancellation condition and the step-free access link, shown before Reserve. Optional: the photo caption and the newsletter, after the decision. Lead with the title, date, location and price, with Reserve beside that summary. If the session fills, its status and the next available step lead instead; if Sam needs step-free access, the access link moves up. Title and date may swap if their relationship stays clear.",
+  start: "p1",
+  nodes: [
+    {
+      id: "p1",
+      title: "What leads",
+      situation: "The page opens with the photo caption and the newsletter. Sam’s question is: can I attend this session, and should I reserve a place?",
+      prompt: "Which four blocks should Sam meet first, in reading order?",
+      facts: [
+        { label: "Goal", value: "After 17:00 · one free beginner workshop next week" },
+        { label: "Fixture", value: "W1 · fictional dates" },
+      ],
+      screen: w1Screen("Workshop · next week"),
+      choices: [
+        {
+          id: "summary-first",
+          label: "Title, date, location, price, with Reserve right beside that summary",
+          detail: "The decision first.",
+          consequence: "Sam sees within the first lines that the session starts at 18:00, is free and is nearby, and the action sits next to the facts that justify it.",
+          signals: [{ criterionId: "mic-c1-prominence", met: true, because: "The facts that decide attendance lead, and the action is placed with them rather than ahead of them." }],
+          affects: [
+            { hotspot: "w1a", tag: "1st" },
+            { hotspot: "w1b", tag: "2nd" },
+            { hotspot: "w1c", tag: "3rd" },
+            { hotspot: "w1d", tag: "4th" },
+            { hotspot: "w1f", tag: "Beside the summary" },
+          ],
+          next: "p2",
+        },
+        {
+          id: "date-first",
+          label: "Date first, then title, location and price, with Reserve beside them",
+          detail: "Time rules sessions in or out.",
+          consequence: "Sam rules the session in on its time straight away, and the title still names what the date belongs to.",
+          signals: [{ criterionId: "mic-c1-prominence", met: true, because: "Leading with the date is a defensible alternative: time is what rules sessions out for Sam, and the title stays attached to it." }],
+          affects: [
+            { hotspot: "w1b", tag: "1st" },
+            { hotspot: "w1a", tag: "2nd" },
+            { hotspot: "w1c", tag: "3rd" },
+            { hotspot: "w1d", tag: "4th" },
+          ],
+          next: "p2",
+        },
+        {
+          id: "action-first",
+          label: "Title and Reserve first, then the photo and newsletter; date and price further down",
+          detail: "Fast to act.",
+          consequence: "Sam reaches the button before learning the time, and has to scroll past the promotion to find out whether 18:00 works.",
+          signals: [{ criterionId: "mic-c1-prominence", met: false, because: "The action bypasses the decision: Sam can act before seeing the time, which is the fact that decides attendance." }],
+          affects: [
+            { hotspot: "w1a", tag: "1st" },
+            { hotspot: "w1f", tag: "2nd" },
+            { hotspot: "w1b", tag: "Buried" },
+          ],
+          next: "p2",
+        },
+        {
+          id: "promo-first",
+          label: "Keep the photo and the newsletter first: bright content draws people in",
+          detail: "The current order.",
+          consequence: "Sam reads a caption and a subscription offer before any fact about the session.",
+          signals: [{ criterionId: "mic-c1-prominence", met: false, because: "Attention-grabbing content is not the same as content that answers Sam’s question; promotion leads while the decision facts wait." }],
+          affects: [
+            { hotspot: "w1i", tag: "1st" },
+            { hotspot: "w1j", tag: "2nd" },
+          ],
+          next: "p2",
+        },
+      ],
+    },
+    {
+      id: "p2",
+      title: "Supporting detail",
+      situation: "The cancellation condition and the step-free access link don’t need the largest type, but Sam may need both before committing.",
+      prompt: "Where do the cancellation condition and the access link go?",
+      screen: w1Screen("Workshop · next week"),
+      choices: [
+        {
+          id: "supporting-before",
+          label: "Supporting: in the decision area before Reserve, smaller than the facts",
+          detail: "Present, quieter.",
+          consequence: "Sam knows the cancellation rule before reserving, and the access link is one tap away.",
+          signals: [{ criterionId: "mic-c1-complete", met: true, because: "Supporting detail stays on the decision route; lower prominence does not mean absence." }],
+          affects: [
+            { hotspot: "w1g", tag: "Supporting · before Reserve" },
+            { hotspot: "w1h", tag: "Supporting · explicit link" },
+          ],
+          next: "p3",
+        },
+        {
+          id: "more-page",
+          label: "Behind a “More information” page, to keep the card clean",
+          detail: "Cleaner card.",
+          consequence: "The page is easier to scan, but Sam reserves without seeing that cancellation closes 24 hours before the start.",
+          signals: [{ criterionId: "mic-c1-complete", met: false, because: "Moving a required condition off the decision route makes the page cleaner by making the decision less informed." }],
+          affects: [
+            { hotspot: "w1g", tag: "Hidden" },
+            { hotspot: "w1h", tag: "Hidden" },
+          ],
+          next: "p3",
+        },
+        {
+          id: "drop-condition",
+          label: "Remove the cancellation line: most people never cancel",
+          detail: "One line shorter.",
+          consequence: "Sam has no way to know the condition exists until it matters.",
+          signals: [{ criterionId: "mic-c1-complete", met: false, because: "Deleting a required condition is a critical failure: priority decides prominence, not presence." }],
+          affects: [{ hotspot: "w1g", tag: "Removed" }],
+          next: "p3",
+        },
+      ],
+    },
+    {
+      id: "p3",
+      title: "Optional discovery",
+      situation: "The photo caption and the newsletter invitation don’t help Sam decide. The brief allows them to stay as optional content.",
+      prompt: "Where do the photo caption and the newsletter go?",
+      screen: w1Screen("Workshop · next week"),
+      choices: [
+        {
+          id: "optional-last",
+          label: "After the decision and Reserve; the newsletter is never a step to reserve",
+          detail: "Out of the way.",
+          consequence: "Anyone interested still finds the newsletter, and nobody has to pass it to book.",
+          signals: [{ criterionId: "mic-c1-prominence", met: true, because: "Optional discovery follows the decision instead of competing with it." }],
+          affects: [
+            { hotspot: "w1i", tag: "Optional · last" },
+            { hotspot: "w1j", tag: "Optional · last" },
+          ],
+          next: "p4",
+        },
+        {
+          id: "between",
+          label: "Between the summary and Reserve, so everyone sees it before booking",
+          detail: "More signups.",
+          consequence: "Sam has to pass a subscription offer between the facts and the button that acts on them.",
+          signals: [{ criterionId: "mic-c1-prominence", met: false, because: "Promotion placed inside the decision interrupts the route from facts to action." }],
+          affects: [{ hotspot: "w1j", tag: "Between facts and Reserve" }],
+          next: "p4",
+        },
+      ],
+    },
+    {
+      id: "p4",
+      title: "When the order changes",
+      situation: "A good order is tied to a situation. Name one change that should change it.",
+      prompt: "Which change should change your priority?",
+      screen: w1Screen("Workshop · next week"),
+      choices: [
+        {
+          id: "full",
+          label: "The session fills: its status and the next available step lead",
+          detail: "Availability changes the decision.",
+          consequence: "A visitor sees “Session full” and the waiting list before a Reserve button that no longer works.",
+          signals: [{ criterionId: "mic-c1-prominence", met: true, because: "The user’s decision changed, so the order changes with it." }],
+          affects: [
+            { hotspot: "w1e", tag: "Leads when full" },
+            { hotspot: "fx-full", tag: "New leading message" },
+          ],
+        },
+        {
+          id: "access",
+          label: "Sam needs step-free access: the access link moves into the summary",
+          detail: "A stated need.",
+          consequence: "Sam checks the entrance before reserving instead of after.",
+          signals: [{ criterionId: "mic-c1-prominence", met: true, because: "A specific user need is a good reason to raise a supporting item." }],
+          affects: [{ hotspot: "w1h", tag: "Raised for an access need" }],
+        },
+        {
+          id: "marketing",
+          label: "Marketing wants more newsletter signups this month",
+          detail: "A business wish.",
+          consequence: "The newsletter moves up again and Sam’s decision gets harder.",
+          signals: [{ criterionId: "mic-c1-prominence", met: false, because: "The brief is Sam’s attendance decision; a signup target doesn’t change what Sam needs to decide." }],
+          affects: [{ hotspot: "w1j", tag: "Raised for signups" }],
+        },
+        {
+          id: "never",
+          label: "Nothing: a good order works in every situation",
+          detail: "One layout for everyone.",
+          consequence: "When the session fills, the page still leads with a button that can’t be used.",
+          signals: [{ criterionId: "mic-c1-prominence", met: false, because: "Priority is a hypothesis about a decision; when the decision changes, so should the order." }],
+        },
+      ],
+    },
+  ],
+  debrief: {
+    impact: "Prominence decides what Sam reads before acting; completeness decides whether that decision is informed.",
+    reversibility: "An order is cheap to change in a design. A booking made without the time or the cancellation rule is harder for Sam to undo.",
+    uncertainty: "Your order is a priority hypothesis. It does not prove everyone reads in that sequence; a task-based check would show whether people find the facts.",
+  },
+};
+
+/** Fixture W2 in its initial, interleaved sequence. */
+const w2Screen: Screen = {
+  app: APP,
+  title: "Two workshops",
+  blocks: [
+    { type: "appbar", app: APP, title: "Two workshops · current sequence" },
+    { type: "heading", text: "Sketch Your First App", hotspot: "a-title" },
+    { type: "heading", text: "Design Your First Service", hotspot: "b-title" },
+    { type: "text", text: "17 November, 18:00", hotspot: "a-date" },
+    { type: "text", text: "18 November, 10:00", hotspot: "b-date" },
+    { type: "text", text: "Free", hotspot: "a-price" },
+    { type: "text", text: "EGP 120", hotspot: "b-price" },
+    { type: "buttons", buttons: [{ label: "Reserve Sketch", variant: "primary" }], hotspot: "a-action" },
+    { type: "buttons", buttons: [{ label: "Reserve Service", variant: "primary" }], hotspot: "b-action" },
+    { type: "link", text: "Get monthly updates", hotspot: "n" },
+  ],
+};
+
+export const micGrouping: DecisionActivity = {
+  id: "mic-a02-grouping",
+  pathId: MIC_ID,
+  template: "decision",
+  title: "Make the right things belong together",
+  contextLabel: "Two workshops on one page",
+  contextKey: "workshop-booking",
+  kind: "baseline",
+  estimatedMinutes: 10,
+  scenario:
+    "Two independent sessions share a page: “Sketch Your First App” (17 November, 18:00, Free, Reserve Sketch) and “Design Your First Service” (18 November, 10:00, EGP 120, Reserve Service). A newsletter link says “Get monthly updates”. Right now the items alternate between the sessions, and every gap is 16px except an 8px gap from the Sketch title to its date.",
+  task: "Finish the grouping so someone can tell which date, cost and action belong to each workshop, on a wide screen and when the cards stack.",
+  constraints: [
+    "Keep all nine items. Session facts can’t be relabelled or copied between groups.",
+    "The newsletter serves a separate purpose.",
+    "Spacing options: 8, 16, 24 or 32px; an optional light border around a whole group; an optional group heading.",
+  ],
+  criteria: ["mic-c2-association"],
+  relatedConcepts: ["mic-l03-spacing"],
+  hints: ["Read a session as a single story.", "Which title owns EGP 120?"],
+  solution:
+    "Group A: Sketch title, date, price and Reserve Sketch. Group B: Service title, date, price and Reserve Service. The newsletter on its own. Use 8px inside each group and 32px between groups, border optional; bordered cards with 16px padding and 24px between them also work. On narrow screens stack whole groups, never alternate their lines.",
+  start: "g1",
+  nodes: [
+    {
+      id: "g1",
+      title: "Build the groups",
+      situation: "The page alternates between the two sessions: both titles, then both dates, both prices and both actions.",
+      prompt: "How do you group the nine items?",
+      facts: [
+        { label: "Sketch", value: "17 November, 18:00 · Free" },
+        { label: "Service", value: "18 November, 10:00 · EGP 120" },
+      ],
+      screen: w2Screen,
+      choices: [
+        {
+          id: "by-session",
+          label: "One group per session with its title, date, price and action; the newsletter on its own",
+          detail: "Each session is one story.",
+          consequence: "Anyone can tell that EGP 120 and Reserve Service belong to “Design Your First Service”.",
+          signals: [{ criterionId: "mic-c2-association", met: true, because: "Each session’s four facts sit together and nothing is shared between groups." }],
+          affects: [
+            { hotspot: "a-title", tag: "Group A" },
+            { hotspot: "a-date", tag: "Group A" },
+            { hotspot: "a-price", tag: "Group A" },
+            { hotspot: "a-action", tag: "Group A" },
+            { hotspot: "b-title", tag: "Group B" },
+            { hotspot: "b-price", tag: "Group B" },
+            { hotspot: "n", tag: "Own section" },
+          ],
+          next: "g2",
+        },
+        {
+          id: "shared-row",
+          label: "Two columns of facts with a shared action row underneath",
+          detail: "Tidy rows.",
+          consequence: "The titles separate, but the two Reserve buttons sit in a footer and their association is guessed from position.",
+          signals: [{ criterionId: "mic-c2-association", met: false, because: "A shared action row breaks the relationship between each action and its session." }],
+          affects: [
+            { hotspot: "a-action", tag: "Shared footer" },
+            { hotspot: "b-action", tag: "Shared footer" },
+          ],
+          next: "g2",
+        },
+        {
+          id: "pills",
+          label: "Colour-matched pills: the Sketch title with EGP 120 and Reserve Service",
+          detail: "Matching colours.",
+          consequence: "Someone books Sketch expecting to pay EGP 120, or reserves the wrong session.",
+          signals: [{ criterionId: "mic-c2-association", met: false, because: "A price and an action are assigned to the wrong session. That is a factual error, whatever the colours say." }],
+          affects: [
+            { hotspot: "a-title", tag: "Pill" },
+            { hotspot: "b-price", tag: "Wrong session" },
+            { hotspot: "b-action", tag: "Wrong session" },
+          ],
+          next: "g2",
+        },
+      ],
+    },
+    {
+      id: "g2",
+      title: "Spacing and borders",
+      situation: "The groups are set. Now the spacing has to say the same thing as the grouping.",
+      prompt: "Which spacing makes each session read as one group?",
+      screen: w2Screen,
+      choices: [
+        {
+          id: "8-32",
+          label: "8px inside each group, 32px between groups, no border",
+          detail: "Spacing alone.",
+          consequence: "Each date sits visibly closer to its own title than to the next session.",
+          signals: [{ criterionId: "mic-c2-association", met: true, because: "A smaller internal gap than the gap between sessions reinforces the grouping without extra boundaries." }],
+          affects: [
+            { hotspot: "a-date", tag: "8px to its title" },
+            { hotspot: "b-title", tag: "32px from Sketch" },
+          ],
+          next: "g3",
+        },
+        {
+          id: "cards",
+          label: "Bordered cards with 16px padding and 24px between them",
+          detail: "A shared container.",
+          consequence: "Each card holds one session; the border and the spacing say the same thing.",
+          signals: [{ criterionId: "mic-c2-association", met: true, because: "A common region is a valid cue as long as the whole session association stays clear." }],
+          affects: [
+            { hotspot: "a-title", tag: "Card A" },
+            { hotspot: "b-title", tag: "Card B" },
+          ],
+          next: "g3",
+        },
+        {
+          id: "border-everything",
+          label: "16px everywhere, with a border around every line",
+          detail: "Everything boxed.",
+          consequence: "Nine boxes compete; nothing shows which date belongs to which title.",
+          signals: [{ criterionId: "mic-c2-association", met: false, because: "Boundaries around every item create competing regions instead of two clear groups." }],
+          next: "g3",
+        },
+        {
+          id: "32-8",
+          label: "32px inside each group, 8px between groups",
+          detail: "Airy cards.",
+          consequence: "The Sketch price now sits closer to the Service title than to its own session.",
+          signals: [{ criterionId: "mic-c2-association", met: false, because: "When the gap inside a group is larger than the gap between groups, spacing suggests the wrong relationship." }],
+          affects: [{ hotspot: "a-price", tag: "Closer to the next session" }],
+          next: "g3",
+        },
+      ],
+    },
+    {
+      id: "g3",
+      title: "On a narrow screen",
+      situation: "On a phone the two sessions no longer fit side by side.",
+      prompt: "What happens when the groups stack?",
+      screen: w2Screen,
+      choices: [
+        {
+          id: "stack-whole",
+          label: "Stack whole groups: all of Sketch, then all of Service, then the newsletter",
+          detail: "Groups move as units.",
+          consequence: "The relationship holds at any width.",
+          signals: [{ criterionId: "mic-c2-association", met: true, because: "Whole groups stack, so every fact stays with its session at narrow widths." }],
+          affects: [
+            { hotspot: "a-title", tag: "Stack 1" },
+            { hotspot: "b-title", tag: "Stack 2" },
+            { hotspot: "n", tag: "Stack 3" },
+          ],
+        },
+        {
+          id: "alternate",
+          label: "Alternate lines: Sketch title, Service title, Sketch date, Service date…",
+          detail: "Keeps the grid order.",
+          consequence: "On a phone the page reads exactly like the broken sequence you started with.",
+          signals: [{ criterionId: "mic-c2-association", met: false, because: "Interleaving the lines of two groups breaks the relationship you just built." }],
+          affects: [
+            { hotspot: "a-date", tag: "Line 3" },
+            { hotspot: "b-date", tag: "Line 4" },
+          ],
+        },
+        {
+          id: "sticky",
+          label: "Move both Reserve buttons into a sticky footer to save space",
+          detail: "Always visible.",
+          consequence: "Two buttons sit far from their sessions; people guess which is which.",
+          signals: [{ criterionId: "mic-c2-association", met: false, because: "Separating actions from the facts they act on makes the association depend on guessing." }],
+          affects: [
+            { hotspot: "a-action", tag: "Sticky footer" },
+            { hotspot: "b-action", tag: "Sticky footer" },
+          ],
+        },
+      ],
+    },
+  ],
+  debrief: {
+    impact: "Grouping carries factual meaning: a price next to the wrong title is a wrong price.",
+    reversibility: "Spacing is cheap to change; a booking for the wrong session costs the person time and possibly money.",
+    uncertainty: "Proximity and shared containers are useful cues, not guarantees. Headings, labels and the underlying structure still need to say the same thing.",
+  },
+};
+
+/** Fixture W3: W1 content with its initial roles, shown as a structured text representation. */
+const w3Screen: Screen = {
+  app: APP,
+  title: "Roles and colours",
+  blocks: [
+    { type: "appbar", app: APP, title: "Workshop · current roles" },
+    {
+      type: "table",
+      columns: ["Item", "Type", "Colour pair"],
+      rows: [
+        ["Title", "24px bold", "#1F2937 on #FFFFFF"],
+        ["Date, location, price, status", "24px bold", "#1F2937 on #FFFFFF"],
+        ["Cancellation condition", "24px bold", "#AAAAAA on #FFFFFF"],
+        ["Reserve a place", "Filled", "Brand"],
+        ["Get the monthly newsletter", "Filled", "Brand"],
+      ],
+      rowHotspots: ["t-title", "t-facts", "t-condition", "t-reserve", "t-news"],
+    },
+    { type: "text", muted: true, text: "Tokens: title 32px bold · section 24px bold · body 16px · supporting 14px. Colours: ink #1F2937 · muted #595959 · brand #1D4ED8 · faint #AAAAAA · surface #FFFFFF." },
+  ],
+};
+
+export const micEmphasis: DecisionActivity = {
+  id: "mic-a03-emphasis",
+  pathId: MIC_ID,
+  template: "decision",
+  title: "Make one action stand out",
+  contextLabel: "Workshop page type and colour roles",
+  contextKey: "workshop-booking",
+  kind: "baseline",
+  estimatedMinutes: 10,
+  scenario:
+    "The workshop page gives every item 24px bold type, both Reserve and the newsletter are filled buttons, and the cancellation condition is #AAAAAA on white. You can only use the supplied type and colour tokens.",
+  task: "Create distinct roles for the title, the facts, the condition and the actions, and choose readable foreground and background pairs.",
+  constraints: [
+    "No opacity tricks. Ordinary 14px and 16px text needs a contrast of at least 4.5:1.",
+    "Large text is at least 18 point, or 14 point bold; not every bold label qualifies.",
+    "Reserve must be distinguishable as the primary action; the newsletter is optional. Text can’t be shortened to pass.",
+  ],
+  criteria: ["mic-c2-roles", "mic-c4-readable"],
+  relatedConcepts: ["mic-l04-emphasis"],
+  hints: ["Reduce competition through role and spacing, not unreadable text.", "Compare #595959 and #AAAAAA on white."],
+  solution:
+    "Title 32px ink on white (24px is also defensible); facts 16px ink; condition 14px muted #595959 (about 7.00:1); Reserve filled brand with a white label (about 6.70:1); newsletter and the access link as plain brand text on white (about 6.70:1). Faint #AAAAAA on white is about 2.32:1 and fails for ordinary text, bold or not.",
+  start: "t1",
+  nodes: [
+    {
+      id: "t1",
+      title: "Type roles",
+      situation: "Everything is 24px bold, so nothing stands out.",
+      prompt: "Which type roles do you give the page?",
+      screen: w3Screen,
+      choices: [
+        {
+          id: "32-16-14",
+          label: "Title 32px bold, facts 16px regular, condition 14px regular",
+          detail: "Three clear roles.",
+          consequence: "The title identifies the offer and the facts read as one calm summary.",
+          signals: [{ criterionId: "mic-c2-roles", met: true, because: "Distinct roles make the differences visible without making anything unreadable." }],
+          affects: [
+            { hotspot: "t-title", tag: "32px" },
+            { hotspot: "t-facts", tag: "16px" },
+            { hotspot: "t-condition", tag: "14px" },
+          ],
+          next: "t2",
+        },
+        {
+          id: "24-16-14",
+          label: "Title 24px bold, facts 16px regular, condition 14px regular",
+          detail: "A smaller title.",
+          consequence: "A slightly quieter page with the same clear structure.",
+          signals: [{ criterionId: "mic-c2-roles", met: true, because: "The exact title size is a design choice; the roles are still distinct." }],
+          affects: [
+            { hotspot: "t-title", tag: "24px" },
+            { hotspot: "t-facts", tag: "16px" },
+            { hotspot: "t-condition", tag: "14px" },
+          ],
+          next: "t2",
+        },
+        {
+          id: "all-24",
+          label: "Keep everything 24px bold so nothing is missed",
+          detail: "Equal weight.",
+          consequence: "Every line shouts, so the important differences are harder to see.",
+          signals: [{ criterionId: "mic-c2-roles", met: false, because: "Emphasis is a limited resource: when everything is emphasised, nothing is." }],
+          affects: [
+            { hotspot: "t-title", tag: "24px bold" },
+            { hotspot: "t-facts", tag: "24px bold" },
+            { hotspot: "t-condition", tag: "24px bold" },
+          ],
+          next: "t2",
+        },
+      ],
+    },
+    {
+      id: "t2",
+      title: "The condition’s colour",
+      situation: "The 14px cancellation condition should be quieter than the facts but still readable.",
+      prompt: "Which colour pair does the condition use?",
+      facts: [
+        { label: "Muted", value: "#595959 on #FFFFFF" },
+        { label: "Faint", value: "#AAAAAA on #FFFFFF" },
+        { label: "Ink", value: "#1F2937 on #FFFFFF" },
+      ],
+      screen: w3Screen,
+      choices: [
+        {
+          id: "muted",
+          label: "Muted #595959 on white",
+          detail: "Quieter, readable.",
+          consequence: "About 7.00:1. The condition reads as supporting text and passes 4.5:1.",
+          signals: [{ criterionId: "mic-c4-readable", met: true, because: "Muted on white is about 7.00:1, above the 4.5:1 threshold for ordinary text." }],
+          affects: [{ hotspot: "t-condition", tag: "About 7.00:1" }],
+          next: "t3",
+        },
+        {
+          id: "ink",
+          label: "Ink #1F2937 on white, smaller than the facts",
+          detail: "Size does the work.",
+          consequence: "About 14.68:1. The smaller size alone separates it from the facts.",
+          signals: [{ criterionId: "mic-c4-readable", met: true, because: "Ink on white is about 14.68:1; the role difference comes from size, not from fading the text." }],
+          affects: [{ hotspot: "t-condition", tag: "About 14.68:1" }],
+          next: "t3",
+        },
+        {
+          id: "faint",
+          label: "Faint #AAAAAA on white, so it competes less",
+          detail: "Very quiet.",
+          consequence: "About 2.32:1. Many people can’t read the condition comfortably, and it fails the threshold.",
+          signals: [{ criterionId: "mic-c4-readable", met: false, because: "Faint on white is about 2.32:1, below 4.5:1. Secondary does not mean low contrast." }],
+          affects: [{ hotspot: "t-condition", tag: "About 2.32:1 · fails" }],
+          next: "t3",
+        },
+        {
+          id: "faint-bold",
+          label: "Faint #AAAAAA on white, but bold",
+          detail: "Bold to compensate.",
+          consequence: "Still about 2.32:1. A 14px bold label is not large text, so 4.5:1 still applies.",
+          signals: [{ criterionId: "mic-c4-readable", met: false, because: "Large text starts at 14 point bold (about 18.7px); 14px bold does not qualify, so the pair still fails." }],
+          affects: [{ hotspot: "t-condition", tag: "About 2.32:1 · fails" }],
+          next: "t3",
+        },
+      ],
+    },
+    {
+      id: "t3",
+      title: "Two actions",
+      situation: "Reserve and the newsletter are both filled buttons in the brand colour.",
+      prompt: "How do Reserve and the newsletter differ?",
+      screen: w3Screen,
+      choices: [
+        {
+          id: "filled-plain",
+          label: "Reserve filled brand with a white label; the newsletter and access link as plain brand text",
+          detail: "One primary action.",
+          consequence: "Reserve is clearly the main action; the newsletter stays discoverable. Both pairs are about 6.70:1.",
+          signals: [
+            { criterionId: "mic-c2-roles", met: true, because: "Role and treatment make Reserve the primary action while the newsletter stays findable." },
+            { criterionId: "mic-c4-readable", met: true, because: "White on brand and brand on white are both about 6.70:1." },
+          ],
+          affects: [
+            { hotspot: "t-reserve", tag: "Filled · primary" },
+            { hotspot: "t-news", tag: "Plain text" },
+          ],
+        },
+        {
+          id: "both-filled",
+          label: "Keep both filled: both are important",
+          detail: "Equal actions.",
+          consequence: "An optional subscription competes with the booking it has nothing to do with.",
+          signals: [
+            { criterionId: "mic-c2-roles", met: false, because: "Two equal primary actions remove the difference between the main task and an optional one." },
+            { criterionId: "mic-c4-readable", met: true, because: "The colours themselves pass; the problem is the hierarchy." },
+          ],
+          affects: [
+            { hotspot: "t-reserve", tag: "Filled" },
+            { hotspot: "t-news", tag: "Filled" },
+          ],
+        },
+        {
+          id: "faint-news",
+          label: "Reserve filled; the newsletter in faint #AAAAAA so it fades away",
+          detail: "Strong contrast between them.",
+          consequence: "The hierarchy is clear, but the newsletter label is about 2.32:1 and hard to read.",
+          signals: [
+            { criterionId: "mic-c2-roles", met: true, because: "The primary action is clear." },
+            { criterionId: "mic-c4-readable", met: false, because: "An optional action is still live text; faint on white fails 4.5:1." },
+          ],
+          affects: [
+            { hotspot: "t-reserve", tag: "Filled" },
+            { hotspot: "t-news", tag: "About 2.32:1 · fails" },
+          ],
+        },
+        {
+          id: "both-plain",
+          label: "Make both plain text links",
+          detail: "Minimal.",
+          consequence: "Reserve no longer reads as the action that completes the task.",
+          signals: [
+            { criterionId: "mic-c2-roles", met: false, because: "The primary action has to be distinguishable by role, not only by its label." },
+            { criterionId: "mic-c4-readable", met: true, because: "Brand on white is about 6.70:1." },
+          ],
+          affects: [
+            { hotspot: "t-reserve", tag: "Plain text" },
+            { hotspot: "t-news", tag: "Plain text" },
+          ],
+        },
+      ],
+    },
+  ],
+  debrief: {
+    impact: "Roles tell people what to read first and what to do; readable contrast decides whether they can read it at all.",
+    reversibility: "Tokens are easy to change, but faint required text excludes people every time the page is used.",
+    uncertainty: "A contrast pass covers one specific requirement. It does not show that the hierarchy is useful or that people understood the page.",
+  },
+};
+
+/** Fixture W4: the blocks in their current source order, inside a fixed 1000px row. */
+const w4Screen: Screen = {
+  app: APP,
+  title: "Responsive rules",
+  blocks: [
+    { type: "appbar", app: APP, title: "Workshop · current source order" },
+    { type: "banner", tone: "warn", text: "Fixed 1000px row at every width: 600px content, 32px gap, 368px side panel", hotspot: "row" },
+    {
+      type: "list",
+      items: [
+        { primary: "H · Title", secondary: "Sketch Your First App", meta: "1", hotspot: "h" },
+        { primary: "P · Optional image", secondary: "Photo · “Learn together”", meta: "2", hotspot: "p" },
+        { primary: "B · Reserve a place", meta: "3", hotspot: "b" },
+        { primary: "N · Newsletter", meta: "4", hotspot: "n" },
+        { primary: "D · Decision summary", secondary: "Date, location, price, status", meta: "5", hotspot: "d" },
+        { primary: "T · Conditions", secondary: "Cancellation condition and access link", meta: "6", hotspot: "t" },
+      ],
+    },
+    { type: "text", muted: true, text: "Previews: 1280, 768, 360 and 320 CSS pixels · 16px gutter on each side · two-column preset: main at least 360px, side at least 280px, 24px gap." },
+  ],
+};
+
+export const micResponsive: DecisionActivity = {
+  id: "mic-a04-responsive",
+  pathId: MIC_ID,
+  template: "decision",
+  title: "Keep the meaning on a smaller screen",
+  contextLabel: "Workshop page across four widths",
+  contextKey: "workshop-booking",
+  kind: "baseline",
+  estimatedMinutes: 12,
+  scenario:
+    "The workshop page is a fixed 1000px row at every viewport. Its source order is H (title), P (optional image), B (Reserve), N (newsletter), D (date, location, price and status) and T (cancellation condition and access link). You need rules for 1280, 768, 360 and 320 CSS pixels.",
+  task: "Specify the change from wide to narrow, check all four widths, and say which checks are calculations and which need a browser.",
+  constraints: [
+    "Usable width is the viewport minus 32px of gutters.",
+    "The two-column preset needs a main column of at least 360px, a side column of at least 280px and a 24px gap.",
+    "Only P may hide. D and T can’t be hidden. No block here needs a two-dimensional layout.",
+  ],
+  criteria: ["mic-c3-fit", "mic-c3-order"],
+  relatedConcepts: ["mic-l05-responsive"],
+  hints: ["Subtract both gutters before choosing columns.", "360 + 24 + 280 is 664, before the outside gutters."],
+  solution:
+    "Usable widths are 1248, 736, 328 and 288px. Two columns fit at 1280 and 768 (they need 664px, so a viewport of 696px or wider); one column at 360 and 320. A single column everywhere is also valid. Source order H, D, T, B, P, N, with D, T and B as the decision region; P hidden on narrow views and N last everywhere. Arithmetic shows fit; wrapping, enlarged text and focus order still need a browser check, especially around 696px.",
+  start: "r1",
+  nodes: [
+    {
+      id: "r1",
+      title: "Usable width",
+      situation: "At the narrowest required width, the viewport is 320 CSS pixels with a 16px gutter on each side.",
+      prompt: "How much width does the content have at 320px?",
+      screen: w4Screen,
+      choices: [
+        {
+          id: "288",
+          label: "288px",
+          detail: "320 − 16 − 16.",
+          consequence: "Every later rule starts from the space the content really has.",
+          signals: [{ criterionId: "mic-c3-fit", met: true, because: "Both gutters are subtracted: 320 − 32 = 288px." }],
+          next: "r2",
+        },
+        {
+          id: "320",
+          label: "320px",
+          detail: "The full viewport.",
+          consequence: "Rules that fit on paper overflow by 32px on the device.",
+          signals: [{ criterionId: "mic-c3-fit", met: false, because: "The gutters take 32px; the content has 288px, not 320px." }],
+          next: "r2",
+        },
+        {
+          id: "304",
+          label: "304px",
+          detail: "One gutter.",
+          consequence: "The layout is still 16px too wide.",
+          signals: [{ criterionId: "mic-c3-fit", met: false, because: "There is a gutter on each side: 320 − 16 − 16 = 288px." }],
+          next: "r2",
+        },
+      ],
+    },
+    {
+      id: "r2",
+      title: "Columns per width",
+      situation: "Usable widths are 1248, 736, 328 and 288px. Two columns need 360 + 24 + 280 = 664px.",
+      prompt: "Which column rule do you set?",
+      screen: w4Screen,
+      choices: [
+        {
+          id: "two-wide",
+          label: "Two columns at 1280 and 768; one column at 360 and 320",
+          detail: "Switch where the minimums stop fitting.",
+          consequence: "The preset fits wherever 664px is available, from a 696px viewport up.",
+          signals: [{ criterionId: "mic-c3-fit", met: true, because: "Two columns only where 664px fits; one column where it doesn’t." }],
+          affects: [{ hotspot: "row", tag: "Replaced by width rules" }],
+          next: "r3",
+        },
+        {
+          id: "single",
+          label: "One fluid column at every width",
+          detail: "Simplest rule.",
+          consequence: "The page reads the same everywhere; wide screens get a narrower measure.",
+          signals: [{ criterionId: "mic-c3-fit", met: true, because: "A single fluid column fits every usable width; it is a valid choice with a task-based reason." }],
+          affects: [{ hotspot: "row", tag: "Replaced by one column" }],
+          next: "r3",
+        },
+        {
+          id: "shrink",
+          label: "Two columns everywhere; shrink both to fit",
+          detail: "Same layout, smaller.",
+          consequence: "At 288px the columns would need 664px. Text gets crushed or overflows.",
+          signals: [{ criterionId: "mic-c3-fit", met: false, because: "The minimum widths can’t fit in 328 or 288px; responsive doesn’t mean scaling everything down." }],
+          next: "r3",
+        },
+        {
+          id: "fixed",
+          label: "Keep the fixed 1000px row and let people scroll sideways",
+          detail: "No change.",
+          consequence: "On a phone people scroll in two directions to read one card.",
+          signals: [{ criterionId: "mic-c3-fit", met: false, because: "A 1000px row can’t fit a 320px viewport without two-dimensional scrolling, which this content doesn’t need." }],
+          affects: [{ hotspot: "row", tag: "Overflows at 320px" }],
+          next: "r3",
+        },
+      ],
+    },
+    {
+      id: "r3",
+      title: "Source order",
+      situation: "In one column, the source order is the reading order.",
+      prompt: "Which source order do you give the blocks?",
+      screen: w4Screen,
+      choices: [
+        {
+          id: "hdtbpn",
+          label: "H, D, T, B, P, N",
+          detail: "Decision, then action, then extras.",
+          consequence: "Title, facts and conditions come before Reserve; the optional blocks come last.",
+          signals: [{ criterionId: "mic-c3-order", met: true, because: "The sequence still makes sense without the columns: decide, then act, then discover." }],
+          affects: [
+            { hotspot: "h", tag: "1" },
+            { hotspot: "d", tag: "2" },
+            { hotspot: "t", tag: "3" },
+            { hotspot: "b", tag: "4" },
+            { hotspot: "p", tag: "5" },
+            { hotspot: "n", tag: "6" },
+          ],
+          next: "r4",
+        },
+        {
+          id: "current",
+          label: "H, P, B, N, D, T (the current order)",
+          detail: "No change.",
+          consequence: "On a phone Reserve and the newsletter come before any fact about the session.",
+          signals: [{ criterionId: "mic-c3-order", met: false, because: "The action and the promotion come before the facts that give the action its meaning." }],
+          affects: [
+            { hotspot: "b", tag: "Before the facts" },
+            { hotspot: "d", tag: "5th" },
+          ],
+          next: "r4",
+        },
+        {
+          id: "hbndtp",
+          label: "H, B, N, D, T, P",
+          detail: "Action high up.",
+          consequence: "A screen reader user hears the newsletter between Reserve and the date.",
+          signals: [{ criterionId: "mic-c3-order", met: false, because: "Unrelated content interleaves the action and the facts it depends on." }],
+          affects: [{ hotspot: "n", tag: "Between Reserve and facts" }],
+          next: "r4",
+        },
+      ],
+    },
+    {
+      id: "r4",
+      title: "What may hide",
+      situation: "The narrow views feel crowded.",
+      prompt: "What may you hide at 360 and 320px?",
+      screen: w4Screen,
+      choices: [
+        {
+          id: "hide-p",
+          label: "Only the optional image P; the newsletter stays, after the decision",
+          detail: "Optional content only.",
+          consequence: "Every fact Sam needs is still on the page.",
+          signals: [{ criterionId: "mic-c3-order", met: true, because: "Only optional content is hidden; required content changes arrangement, not presence." }],
+          affects: [{ hotspot: "p", tag: "Hidden when narrow" }],
+          next: "r5",
+        },
+        {
+          id: "hide-d",
+          label: "Collapse D behind “More details” on phones",
+          detail: "Shorter page.",
+          consequence: "On a phone people see a Reserve button without the date or the price.",
+          signals: [{ criterionId: "mic-c3-order", met: false, because: "Hiding required decision facts on small screens is a critical failure: below the fold is fine, absent is not." }],
+          affects: [{ hotspot: "d", tag: "Hidden on phones" }],
+          next: "r5",
+        },
+        {
+          id: "hide-t",
+          label: "Hide T: the conditions take too much space",
+          detail: "Fewer lines.",
+          consequence: "Phone users reserve without the cancellation rule or the access link.",
+          signals: [{ criterionId: "mic-c3-order", met: false, because: "Conditions needed before commitment can’t disappear because they take space; change the wrapping instead." }],
+          affects: [{ hotspot: "t", tag: "Hidden on phones" }],
+          next: "r5",
+        },
+      ],
+    },
+    {
+      id: "r5",
+      title: "What you can claim",
+      situation: "Your rules are written down. Nobody has opened them in a browser yet.",
+      prompt: "Which statement goes in your check notes?",
+      screen: w4Screen,
+      choices: [
+        {
+          id: "calc-vs-browser",
+          label: "The arithmetic fits at all four widths; wrapping, enlarged text and focus order still need a browser check around 696px",
+          detail: "Calculated versus rendered.",
+          consequence: "The next person knows exactly what was checked and what wasn’t.",
+          signals: [{ criterionId: "mic-c3-fit", met: true, because: "A calculated fit is kept separate from rendered evidence, and the transition width is named." }],
+        },
+        {
+          id: "all-devices",
+          label: "Checked at 360px: the layout works on all devices",
+          detail: "One preview.",
+          consequence: "The 320px case and the transition width go unchecked.",
+          signals: [{ criterionId: "mic-c3-fit", met: false, because: "One 360px preview does not establish reflow at 320px, at other widths or with enlarged text." }],
+        },
+        {
+          id: "three-widths",
+          label: "The layout fits at 1280, 768 and 360px",
+          detail: "Three widths.",
+          consequence: "The 320px reflow case is missing.",
+          signals: [{ criterionId: "mic-c3-fit", met: false, because: "320px is a required width; the narrowest case is the one most likely to fail." }],
+        },
+      ],
+    },
+  ],
+  debrief: {
+    impact: "Layout rules decide whether the same decision survives on a phone, not only whether the page looks tidy.",
+    reversibility: "Rules are easy to revise. People who can’t reach the date on a phone leave without saying why.",
+    uncertainty: "Width arithmetic is a calculation. Real content, enlarged text, focus order and the transition width need checking in a working interface.",
+  },
+};
+
+const stretchReasons: CritiqueActivity["reasons"] = [
+  { id: "fixed-size", label: "A fixed size can’t grow with longer content", appliesTo: "problematic" },
+  { id: "truncated", label: "Cuts off a required fact without a complete route to it", appliesTo: "problematic" },
+  { id: "overlap", label: "Positioned so it can cover other content", appliesTo: "problematic" },
+  { id: "direction", label: "Ignores the text direction of the language", appliesTo: "problematic" },
+  { id: "identifier-changed", label: "Changes the meaning of an identifier", appliesTo: "problematic" },
+  { id: "preserved", label: "Keeps the complete fact and its meaning", appliesTo: "acceptable" },
+  { id: "grows", label: "Wraps and pushes the following content down", appliesTo: "acceptable" },
+];
+
+export const micStretch: CritiqueActivity = {
+  id: "mic-a05-stretch",
+  pathId: MIC_ID,
+  template: "critique",
+  title: "Let the words stretch",
+  contextLabel: "Long-text and right-to-left workshop card",
+  contextKey: "workshop-booking",
+  kind: "baseline",
+  estimatedMinutes: 10,
+  scenario:
+    "A narrow 320px workshop card now has longer English text and an Arabic layout-stress version. For this fixture the price is EGP 120 and the booking code is WS-204. The card was built for short labels.",
+  task: "Review each highlighted part of the card. Decide whether it keeps the facts intact, and choose the reason that explains your judgement.",
+  constraints: [
+    "Expected facts: title, date, location, price, code, action and condition.",
+    "WS-204 stays in that character order. Don’t reverse all digits, dates or icons as a generic rule.",
+    "The Arabic strings are a layout stress case, not final translated product copy.",
+  ],
+  criteria: ["mic-c4-preserve"],
+  relatedConcepts: ["mic-l06-stretch"],
+  hints: ["What happens when the title needs a third line?", "The code is an identifier, not a word to reverse."],
+  solution:
+    "Problematic: the fixed 180px height, the one-line title with an ellipsis, the clipped location, the Reserve button positioned over the card’s bottom edge, the left alignment forced on the Arabic card, and the code reversed to 402-SW. Acceptable: the date kept whole and the condition that wraps onto a second line. Repairs: auto height, wrapping for the title, location and action, the button in normal flow, logical start alignment, a right-to-left Arabic paragraph, and WS-204 and EGP 120 kept as left-to-right runs.",
+  screen: {
+    app: APP,
+    title: "Workshop card · 320px",
+    blocks: [
+      { type: "appbar", app: APP, title: "Workshop card · 320px · two fixtures" },
+      {
+        type: "group",
+        framed: true,
+        blocks: [
+          { type: "heading", text: "Sketch Your First App for Community Pro…", hotspot: "x-title" },
+          { type: "field", label: "Date", value: "17 November, 18:00–20:00", hotspot: "x-date" },
+          { type: "field", label: "Location", value: "Riverside Learning Hub, East Buil", note: "Shown on one line; the rest is clipped", hotspot: "x-location" },
+          { type: "field", label: "Price", value: "EGP 120" },
+          { type: "text", muted: true, text: "Cancel up to 24 hours before the start of the workshop session", hotspot: "x-condition" },
+          {
+            type: "group",
+            hotspot: "x-action",
+            blocks: [
+              { type: "buttons", buttons: [{ label: "Reserve a place in this workshop", variant: "primary" }] },
+              { type: "text", muted: true, text: "Pinned to the card’s bottom edge; covers the location when it needs a second line" },
+            ],
+          },
+          { type: "text", muted: true, text: "Card height: fixed at 180px", hotspot: "x-height" },
+        ],
+      },
+      {
+        type: "group",
+        framed: true,
+        blocks: [
+          { type: "text", muted: true, text: "Arabic layout-stress fixture" },
+          {
+            type: "group",
+            hotspot: "x-align",
+            blocks: [
+              { type: "heading", text: "صمّم تطبيقك الأول للمبادرات المجتمعية والفرق التطوعية" },
+              { type: "text", text: "مركز التعلّم المجتمعي، المبنى الشرقي، الطابق الثاني، القاعة ٢٠٤" },
+              { type: "text", muted: true, text: "Alignment: left, forced for every language" },
+            ],
+          },
+          { type: "field", label: "Booking code", value: "402-SW", note: "Characters reversed for the right-to-left preview", hotspot: "x-code" },
+          { type: "buttons", buttons: [{ label: "احجز مكانك في هذه الورشة", variant: "primary" }] },
+        ],
+      },
+    ],
+  },
+  reasons: stretchReasons,
+  hotspots: [
+    { id: "x-height", label: "Fixed 180px card height", verdict: "problematic", correctReasons: ["fixed-size"], criterionId: "mic-c4-preserve", explanation: "Longer titles, locations and translations need more lines; a fixed height clips them or forces overlap.", improvement: "Let the card’s height follow its content." },
+    { id: "x-title", label: "Title cut with an ellipsis", verdict: "problematic", correctReasons: ["truncated"], criterionId: "mic-c4-preserve", explanation: "“For Community Projects and Volunteer Teams” is part of what the session is; the ellipsis hides it with no way to read the rest.", improvement: "Let the title wrap onto as many lines as it needs." },
+    { id: "x-location", label: "Location clipped to one line", verdict: "problematic", correctReasons: ["truncated"], criterionId: "mic-c4-preserve", explanation: "The building, floor and room are exactly the part that got cut, and they decide where people go.", improvement: "Wrap the location; a secondary line is fine." },
+    { id: "x-action", label: "Reserve pinned to the bottom edge", verdict: "problematic", correctReasons: ["overlap"], criterionId: "mic-c4-preserve", explanation: "An absolutely positioned button doesn’t move when the text above it grows, so it covers it.", improvement: "Put the action in normal flow after the details." },
+    { id: "x-align", label: "Left alignment forced on the Arabic card", verdict: "problematic", correctReasons: ["direction"], criterionId: "mic-c4-preserve", explanation: "Right-to-left text set to start from the left reads against its own direction.", improvement: "Use logical start alignment and set the paragraph direction for the language." },
+    { id: "x-code", label: "Booking code shown as 402-SW", verdict: "problematic", correctReasons: ["identifier-changed"], criterionId: "mic-c4-preserve", explanation: "Reversing the characters turns WS-204 into a different code. Direction is handled per text run, not by reversing characters.", improvement: "Keep WS-204 as an isolated left-to-right run inside the Arabic text." },
+    { id: "x-date", label: "Date kept whole", verdict: "acceptable", correctReasons: ["preserved"], criterionId: "mic-c4-preserve", explanation: "The date keeps its order and meaning; nothing about it was reversed or cut.", improvement: "Ask a native reviewer how the date should read in the Arabic version." },
+    { id: "x-condition", label: "Condition on two lines", verdict: "acceptable", correctReasons: ["grows", "preserved"], criterionId: "mic-c4-preserve", explanation: "The condition wraps instead of being cut, and pushes what follows down.", improvement: "Check that it still wraps at enlarged text sizes." },
+  ],
+};
+
+/** Fixture W6: the proposed revision, the two review comments and the product owner’s goal. */
+const w6Screen: Screen = {
+  app: APP,
+  title: "Proposed revision",
+  blocks: [
+    { type: "appbar", app: APP, title: "Proposed revision · for review" },
+    { type: "heading", text: "Sketch Your First App", hotspot: "w6-title" },
+    {
+      type: "group",
+      framed: true,
+      hotspot: "w6-decision",
+      blocks: [
+        { type: "text", text: "Tuesday 17 November, 18:00–20:00 · Riverside Learning Hub, Room 2 · Free · 4 places left" },
+        { type: "buttons", buttons: [{ label: "Reserve a place", variant: "primary" }] },
+      ],
+    },
+    { type: "text", muted: true, text: "Cancel up to 24 hours before the start · View step-free access details", hotspot: "w6-terms" },
+    { type: "link", text: "Get the monthly newsletter", hotspot: "w6-news" },
+    { type: "quote", text: "Make Reserve the first thing and move conditions below the newsletter to reduce clutter.", cite: "Reviewer R", hotspot: "q-r" },
+    { type: "quote", text: "Show everything at equal size so nothing is missed.", cite: "Reviewer S", hotspot: "q-s" },
+    { type: "banner", tone: "info", text: "Product owner: the task is choosing the correct session, not newsletter signups.", hotspot: "goal" },
+  ],
+};
+
+export const micCritique: DecisionActivity = {
+  id: "mic-a06-critique",
+  pathId: MIC_ID,
+  template: "decision",
+  title: "Turn feedback into a useful check",
+  contextLabel: "Design review of the workshop page",
+  contextKey: "workshop-booking",
+  kind: "baseline",
+  estimatedMinutes: 12,
+  scenario:
+    "Your revised workshop page puts the decision summary beside Reserve on desktop and before it on narrow screens; all required text uses readable pairs. Two reviewers disagree with it. The product owner says the task is choosing the correct session. You can run a moderated task with five recruited participants as an initial diagnostic study. No user test has run yet.",
+  task: "Respond to both reviewers, then plan a check for the user’s goal without claiming results you don’t have.",
+  constraints: [
+    "The task must not tell participants the answer or point at a control.",
+    "Cancellation stays available before commitment.",
+    "Five participants support a bounded diagnostic plan, not a population success rate. No real booking happens.",
+  ],
+  criteria: ["mic-c1-prominence", "mic-c5-consequence", "mic-c5-check"],
+  relatedConcepts: ["mic-l07-critique", "mic-l08-check"],
+  hints: ["What would you observe if this change helped?", "A task should express the goal rather than instruct a screen action."],
+  solution:
+    "Adapt R: keep Reserve prominent and adjacent to the decision facts, but don’t move the conditions below the promotion. Reject S’s equal sizing because it removes role distinctions, or propose a controlled comparison. Task: “You can attend only after 17:00 next week. Choose a suitable session and tell me when, where, the cost and the cancellation condition.” Expected: 17 November 18:00, Riverside Room 2, Free, cancel up to 24 hours before. Observe correct facts, wrong session, hesitation, help and missed conditions. Report “No results yet”: five sessions may reveal problems but can’t establish how common they are.",
+  start: "f1",
+  nodes: [
+    {
+      id: "f1",
+      title: "Reviewer R",
+      situation: "R wants Reserve first and the conditions moved below the newsletter. That may help someone who already knows the session; a first-time visitor could act without noticing the date.",
+      prompt: "How do you respond to R?",
+      screen: w6Screen,
+      choices: [
+        {
+          id: "adapt",
+          label: "Adapt: keep Reserve prominent, right beside the date, place and price; keep the conditions before it",
+          detail: "Take the goal, not the instruction.",
+          consequence: "Returning visitors find Reserve quickly, and first-time visitors still see the facts and the condition before acting.",
+          signals: [
+            { criterionId: "mic-c1-prominence", met: true, because: "The action stays prominent without bypassing the decision facts." },
+            { criterionId: "mic-c5-consequence", met: true, because: "You translated a preference into its intended consequence and kept what the task needs." },
+          ],
+          affects: [
+            { hotspot: "w6-decision", tag: "Reserve beside the facts" },
+            { hotspot: "w6-terms", tag: "Kept before commitment" },
+          ],
+          next: "f2",
+        },
+        {
+          id: "keep",
+          label: "Keep the current position: first-time visitors need the date before acting; check it in the task",
+          detail: "Hold, with a reason.",
+          consequence: "The layout stays, and the task will show whether people miss Reserve.",
+          signals: [
+            { criterionId: "mic-c1-prominence", met: true, because: "Decision facts keep leading for the people the brief is about." },
+            { criterionId: "mic-c5-consequence", met: true, because: "Rejecting a request is fine when the reason is a consequence you can check." },
+          ],
+          affects: [{ hotspot: "w6-decision", tag: "Unchanged" }],
+          next: "f2",
+        },
+        {
+          id: "accept",
+          label: "Accept: Reserve first, conditions after the newsletter",
+          detail: "Do as asked.",
+          consequence: "First-time visitors can reserve without seeing the time, and the cancellation rule now follows the promotion.",
+          signals: [
+            { criterionId: "mic-c1-prominence", met: false, because: "The action now bypasses the facts that decide attendance." },
+            { criterionId: "mic-c5-consequence", met: false, because: "A reviewer’s seniority is not evidence; the change removes a required condition from the decision." },
+          ],
+          affects: [
+            { hotspot: "w6-decision", tag: "Reserve first" },
+            { hotspot: "w6-terms", tag: "After the newsletter" },
+          ],
+          next: "f2",
+        },
+      ],
+    },
+    {
+      id: "f2",
+      title: "Reviewer S",
+      situation: "S wants every block at equal size so nothing is missed.",
+      prompt: "How do you respond to S?",
+      screen: w6Screen,
+      choices: [
+        {
+          id: "reject-roles",
+          label: "Reject: equal sizing removes the difference between deciding facts and extras, and nothing is hidden today",
+          detail: "Keep the roles.",
+          consequence: "The page keeps a clear route, and S’s concern is answered with what is on the page.",
+          signals: [{ criterionId: "mic-c5-consequence", met: true, because: "You named the consequence of the request and why the current roles serve the task." }],
+          affects: [{ hotspot: "q-s", tag: "Rejected with a reason" }],
+          next: "f3",
+        },
+        {
+          id: "compare",
+          label: "Propose a comparison: run the same task on both versions and see whether anyone misses a fact",
+          detail: "Test the concern.",
+          consequence: "The disagreement becomes a question you can observe instead of a debate about taste.",
+          signals: [{ criterionId: "mic-c5-consequence", met: true, because: "When a benefit is uncertain, comparing variants under a specific task is a sound response." }],
+          affects: [{ hotspot: "q-s", tag: "Becomes a comparison" }],
+          next: "f3",
+        },
+        {
+          id: "equal",
+          label: "Accept: make every block the same size",
+          detail: "Nothing stands out.",
+          consequence: "The newsletter now looks as important as the date.",
+          signals: [{ criterionId: "mic-c5-consequence", met: false, because: "Equal emphasis doesn’t make things easier to find; it removes the cues that show what matters." }],
+          affects: [{ hotspot: "w6-news", tag: "Same size as the date" }],
+          next: "f3",
+        },
+      ],
+    },
+    {
+      id: "f3",
+      title: "Task wording",
+      situation: "You will ask five participants to do something with the page while you observe.",
+      prompt: "Which task do you give participants?",
+      screen: w6Screen,
+      choices: [
+        {
+          id: "goal-task",
+          label: "“You can attend only after 17:00 next week. Choose a suitable session and tell me when, where, the cost and the cancellation condition.”",
+          detail: "The goal, not the screen.",
+          consequence: "You see whether people find and interpret the facts on their own.",
+          signals: [{ criterionId: "mic-c5-check", met: true, because: "The task expresses the user’s goal, and the facts you will check are defined by it." }],
+          next: "f4",
+        },
+        {
+          id: "point",
+          label: "“Click Reserve and check the date above it.”",
+          detail: "Direct.",
+          consequence: "Everyone succeeds, because the task told them where to look.",
+          signals: [{ criterionId: "mic-c5-check", met: false, because: "Pointing at the control and the answer tests whether people follow instructions, not whether the page is clear." }],
+          next: "f4",
+        },
+        {
+          id: "opinion",
+          label: "“Do you like this page?”",
+          detail: "Open question.",
+          consequence: "You collect opinions and no evidence about choosing the right session.",
+          signals: [{ criterionId: "mic-c5-check", met: false, because: "A preference question doesn’t observe the task the page is for." }],
+          next: "f4",
+        },
+      ],
+    },
+    {
+      id: "f4",
+      title: "Reporting",
+      situation: "Your plan goes to the team before any session has run.",
+      prompt: "What goes in your report?",
+      screen: w6Screen,
+      choices: [
+        {
+          id: "honest",
+          label: "No results yet. Correct facts defined in advance; five sessions may reveal problems but can’t show how common they are",
+          detail: "Plan, not findings.",
+          consequence: "The team knows what will be observed and what the study can and can’t tell them.",
+          signals: [{ criterionId: "mic-c5-check", met: true, because: "Predicted results are kept separate from observations, and the limits of five sessions are stated." }],
+        },
+        {
+          id: "rate",
+          label: "Expected success rate: 100%, the layout is clear",
+          detail: "Confident.",
+          consequence: "A prediction is reported as a result before anyone has been recruited.",
+          signals: [{ criterionId: "mic-c5-check", met: false, because: "A planned test can’t be reported as a successful one; this is a fabricated result." }],
+        },
+      ],
+    },
+  ],
+  debrief: {
+    impact: "A critique is useful when it becomes a consequence you can check; a check is useful when it observes the real task.",
+    reversibility: "Layout changes are easy to revert. A report that claims results nobody observed misleads every later decision built on it.",
+    uncertainty: "No participants have been tested. Five sessions can reveal problems, but they can’t establish how often those problems happen.",
+  },
+};

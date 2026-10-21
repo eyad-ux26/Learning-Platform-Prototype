@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { flagshipBundle } from "@/content/flagship";
 import { libraryBundles } from "@/content/library";
+import { authoredBundles } from "@/content/paths";
 import { hasArabic, hasEgyptian } from "@/i18n/core";
 import "@/i18n/ar";
 import "@/i18n/eg";
@@ -17,10 +18,10 @@ function sentences(v: unknown, out = new Set<string>()) {
 }
 
 describe("Arabic content coverage", () => {
-  it("has a translation for every authored sentence in the flagship and library paths", () => {
+  it("has a translation for every authored sentence in the flagship, library and authored paths", () => {
     const all = new Set<string>();
     sentences(flagshipBundle, all);
-    libraryBundles.forEach((b) => sentences(b, all));
+    [...libraryBundles, ...authoredBundles].forEach((b) => sentences(b, all));
     const missing = [...all].filter((s) => !hasArabic(s));
     expect(missing, `Untranslated: ${missing.slice(0, 5).join(" | ")}`).toEqual([]);
   });
@@ -28,7 +29,7 @@ describe("Arabic content coverage", () => {
   it("has an Egyptian entry for every authored sentence too", () => {
     const all = new Set<string>();
     sentences(flagshipBundle, all);
-    libraryBundles.forEach((b) => sentences(b, all));
+    [...libraryBundles, ...authoredBundles].forEach((b) => sentences(b, all));
     const missing = [...all].filter((s) => !hasEgyptian(s));
     expect(missing, `No Egyptian entry: ${missing.slice(0, 5).join(" | ")}`).toEqual([]);
   });

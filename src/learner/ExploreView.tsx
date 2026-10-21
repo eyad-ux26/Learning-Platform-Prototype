@@ -59,7 +59,7 @@ export function ExploreView({
       )}
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[260px_1fr]">
-        <nav aria-label={tr("Concepts")} className="lg:sticky lg:top-24 lg:h-fit">
+        <nav aria-label={tr("Concepts")} className="min-w-0 lg:sticky lg:top-24 lg:h-fit">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-subtle">{tr("Concepts")}</p>
           <ol className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
             {bundle.explore.map((c, i) => {
