@@ -1,5 +1,6 @@
 import { flagshipBundle } from "@/content/flagship";
 import { libraryBundles } from "@/content/library";
+import { authoredBundles } from "@/content/paths";
 import { scenarios, seedCatalog, seedLearner } from "@/content/seed";
 import type { AccessState, CatalogEntry, LearnerRecord, PathId, Role } from "@/domain/types";
 
@@ -7,7 +8,7 @@ export const SCHEMA_VERSION = 1;
 
 /** Changes whenever the seed content changes, so stale local content is replaced safely. */
 export const SEED_FINGERPRINT = (() => {
-  const s = JSON.stringify([flagshipBundle, libraryBundles]);
+  const s = JSON.stringify([flagshipBundle, libraryBundles, authoredBundles]);
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);

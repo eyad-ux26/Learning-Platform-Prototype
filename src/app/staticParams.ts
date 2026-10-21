@@ -4,8 +4,9 @@
  */
 import { flagshipBundle } from "@/content/flagship";
 import { libraryBundles } from "@/content/library";
+import { authoredBundles } from "@/content/paths";
 
-const bundles = [flagshipBundle, ...libraryBundles];
+const bundles = [flagshipBundle, ...libraryBundles, ...authoredBundles];
 
 export const pathParams = () => bundles.map((b) => ({ pathId: b.meta.id }));
 export const activityParams = () => bundles.flatMap((b) => b.activities.map((a) => ({ pathId: b.meta.id, activityId: a.id })));

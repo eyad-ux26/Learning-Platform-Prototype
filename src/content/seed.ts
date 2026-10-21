@@ -7,6 +7,7 @@ import { submitAttempt } from "@/domain/evidence";
 import type { ActivityResponse, CatalogEntry, LearnerRecord, PathBundle, Role, AccessState } from "@/domain/types";
 import { flagshipBundle, FLAGSHIP_ID } from "./flagship";
 import { libraryBundles } from "./library";
+import { authoredBundles } from "./paths";
 
 export const SEED_PUBLISHED_AT = "2026-02-02T09:00:00.000Z";
 
@@ -136,7 +137,7 @@ export function seedLearner(scenarioId: string): LearnerRecord {
 }
 
 export function seedCatalog(): { order: string[]; entries: Record<string, CatalogEntry> } {
-  const all = [flagshipBundle, ...libraryBundles];
+  const all = [flagshipBundle, ...libraryBundles, ...authoredBundles];
   const entries: Record<string, CatalogEntry> = {};
   for (const bundle of all) {
     entries[bundle.meta.id] = {

@@ -13,5 +13,6 @@ import words from "./words";
 import review from "./ui-review";
 import library from "./content-library";
 import home from "./ui-home";
+import makeItClear from "./path-make-it-clear";
 
-registerArabic(home, review, words, f1, f2, f3, f4, f5, library, domain, preview, activities, learner, shell);
+registerArabic(makeItClear, home, review, words, f1, f2, f3, f4, f5, library, domain, preview, activities, learner, shell);
