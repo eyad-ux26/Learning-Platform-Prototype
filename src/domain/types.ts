@@ -59,7 +59,11 @@ export interface Screen {
   app: string;
   title: string;
   blocks: Block[];
+  /** The device the live preview is drawn in (wide screens only). Defaults to a laptop. */
+  device?: Device;
 }
+
+export type Device = "laptop" | "tablet" | "phone";
 
 // ---------- Activities ----------
 
@@ -84,12 +88,26 @@ export interface ActivityBase {
   scenario: string;
   task: string;
   constraints: string[];
+  /**
+   * The brief as a short chat from the client. When absent, the workspace builds it from `scenario` and `task`.
+   * `scenario`, `task` and `constraints` stay the full record (locked view, admin, help).
+   */
+  brief?: ClientBrief;
   /** Criteria this activity assesses. Skills are derived from the criteria. */
   criteria: CriterionId[];
   relatedConcepts: ConceptId[];
   hints: string[];
   /** Shown only when the learner chooses to reveal it (makes the attempt practice-only). */
   solution: string;
+}
+
+export interface ClientBrief {
+  /** Who is writing, e.g. "Riverside Workshops team". */
+  from: string;
+  /** Short messages from the client, in order. */
+  messages: string[];
+  /** The main ask: shown last and highlighted. */
+  ask: string;
 }
 
 // Design Bench --------------------------------------------------------------

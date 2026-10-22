@@ -24,9 +24,17 @@ async function shot(name, opts = {}) {
   await page.waitForTimeout(350); // let entrance transitions settle
   if (SHOTS) await page.screenshot({ path: `${SHOT_DIR}${name}.png`, ...opts });
 }
-async function go(path) {
+async function go(path, { keepBrief = false } = {}) {
   await page.goto(BASE + path, { waitUntil: "networkidle" });
   await page.locator("h1").first().waitFor();
+  // A fresh activity opens on its brief; say it has been read so the workspace is usable.
+  if (!keepBrief && path.includes("/practice/")) await readBrief();
+}
+async function readBrief() {
+  const read = page.getByRole("button", { name: /I’ve read the brief|قرأت الطلب|قريت الطلب/ });
+  if (!(await read.count())) return;
+  await read.click();
+  await page.getByRole("dialog", { name: /New brief|طلب جديد/ }).waitFor({ state: "detached" });
 }
 async function switchTo(firstName) {
   await go("/demo");
@@ -89,6 +97,11 @@ await journey("1. Complete an activity and inspect its feedback", async () => {
   await go("/paths/calibrated-trust");
   await shot("02-path-overview", { fullPage: true });
   await go("/paths/calibrated-trust/practice/bench-deadline");
+  // Submit and Save and exit stay on screen without scrolling.
+  for (const name of ["Submit response", "Save and exit"]) {
+    const box = await page.getByRole("button", { name }).boundingBox();
+    check(box && box.y + box.height <= 900, `${name} should be visible without scrolling`);
+  }
   // Incomplete submission is handled clearly.
   await page.getByRole("button", { name: "Submit response" }).click();
   await page.getByText("Your response is incomplete").waitFor();
@@ -246,7 +259,7 @@ await journey("H. Switch to Arabic, work in right-to-left, switch back", async (
   check(await page.getByRole("heading", { name: "التخصصات" }).isVisible(), "home heading should be Arabic");
   await shot("18-arabic-home");
   await go("/paths/calibrated-trust/practice/bench-deadline");
-  await page.getByText("موجز العميل").waitFor();
+  await page.getByText(/^طلب العميل ·/).waitFor();
   await page.locator("fieldset label").first().click();
   await page.getByRole("button", { name: /القرار التالي/ }).waitFor();
   await shot("19-arabic-workspace");
@@ -355,8 +368,14 @@ await journey("Responsive layouts (1024 and 390)", async () => {
 await journey("K. Phone: the interface keeps the screen and Next stays in reach", async () => {
   await page.setViewportSize({ width: 390, height: 800 });
   await switchTo("Tomás");
-  await go("/paths/calibrated-trust/practice/bench-deadline");
-  await page.getByRole("button", { name: "Continue" }).click();
+  await go("/paths/calibrated-trust/practice/bench-deadline", { keepBrief: true });
+  // The brief opens on its own first; once read, the designer replies and the brief moves into its tab.
+  check(await page.getByRole("dialog", { name: /New brief/ }).isVisible(), "a fresh activity should open on its brief");
+  await readBrief();
+  check(await page.getByRole("tab", { name: "Live" }).getAttribute("aria-selected") === "true", "after reading, the phone should show the interface");
+  await page.getByRole("tab", { name: "Brief" }).click();
+  check(await page.getByText(/Got it\. I’ll make the calls/).isVisible(), "the brief should keep the designer's reply");
+  await page.getByRole("tab", { name: "Live" }).click();
   const fits = () => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1);
   check(await fits(), "the workspace should not scroll the page");
   const next = page.getByRole("button", { name: /Next decision/ }).last();

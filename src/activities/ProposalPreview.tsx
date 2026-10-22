@@ -5,6 +5,7 @@ import { History, Info, MessageSquareText, RotateCcw, Settings, Sparkles, Undo2,
 import type { Behaviour, DesignBenchActivity, DesignDimension } from "@/domain/types";
 import { cn } from "@/components/ui";
 import { useProductI18n as useI18n } from "@/i18n";
+import { DeviceFrame } from "./DeviceFrame";
 
 export interface PreviewState {
   status: "proposed" | "applied" | "reverted";
@@ -573,15 +574,7 @@ export function ProposalPreview({
 
   return (
     <ActiveDimensionContext.Provider value={activeDimension}>
-    <div className="group/pv rounded-xl border border-line-strong bg-pv-bg p-1.5" role="group" aria-label={tr("{app} interface preview", { app: cfg.app })}>
-      <div className="flex items-center justify-between gap-2 px-2 pb-1.5 pt-0.5">
-        <div className="flex items-center gap-1.5" aria-hidden>
-          <span className="h-2.5 w-2.5 rounded-full bg-[#d4d8e0]" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#d4d8e0]" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#d4d8e0]" />
-        </div>
-        {cfg.breadcrumb && <span className="truncate text-[11px] text-pv-muted">{cfg.breadcrumb}</span>}
-      </div>
+    <DeviceFrame className="group/pv" label={tr("{app} interface preview", { app: cfg.app })} bar={cfg.breadcrumb && <span className="truncate text-[11px] text-pv-muted">{cfg.breadcrumb}</span>}>
       <div className="relative rounded-lg bg-pv-surface">
         <div className="flex items-center gap-3 border-b border-pv-line px-4 py-3">
           <span className="rounded bg-pv-fg px-1.5 py-0.5 text-[11px] font-bold text-white">{cfg.app}</span>
@@ -697,7 +690,7 @@ export function ProposalPreview({
           </ol>
         </div>
       )}
-    </div>
+    </DeviceFrame>
     </ActiveDimensionContext.Provider>
   );
 }
