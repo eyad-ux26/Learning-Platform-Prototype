@@ -43,6 +43,15 @@ export const micCapstone: DecisionActivity = {
   scenario:
     "A fresh case. Noor borrowed a camera kit from a fictional community equipment library and must identify the correct pickup and understand what to bring before confirming readiness. The current page opens with a promotion and an image, puts “I’m ready to collect” above the details, uses a fixed 960px width, sets every block in 24px bold and shows the conditions in #AAAAAA on white.",
   task: "Rebuild the page so Noor can collect the right kit before the deadline: priority and grouping, type and colour roles, rules for four widths, long-text and right-to-left repairs, a rationale and a check.",
+  brief: {
+    from: "Harbor Equipment Library",
+    messages: [
+      "A new case. Noor borrowed a camera kit from our community equipment library.",
+      "Before confirming readiness, Noor must find the correct pickup and understand what to bring.",
+      "Today the page opens with a promotion and an image, and puts “I’m ready to collect” above the details. It’s a fixed 960px wide, every block is 24px bold, and the conditions are #AAAAAA on white.",
+    ],
+    ask: "Rebuild the page so Noor can collect the right kit before the deadline: priority and grouping, type and colour roles, rules for four widths, long-text and right-to-left repairs, a rationale and a check.",
+  },
   constraints: [
     "Keep C1–C10 and make them available before confirmation where relevant. CK-731 stays exact.",
     "The deadline, location and required items can’t be replaced by promotion.",
@@ -478,6 +487,14 @@ export const micReviewLoans: DecisionActivity = {
   scenario:
     "A short review on a new case, proposed for about three days after the capstone. A borrowed-book reminder shows two loans: “Field Guide to Cities” is due 24 November and “Designing Small Parks” is due 2 December. On the screen, each card shows the other book’s due date, and a “Browse new arrivals” promotion comes first. Both renewals are allowed.",
   task: "Before you look anything up, decide which rule applies. Then repair the groups and decide which loan needs attention first.",
+  brief: {
+    from: "Northside Library",
+    messages: [
+      "Our borrowed-book reminder shows two loans: “Field Guide to Cities” is due 24 November and “Designing Small Parks” is due 2 December. Both can be renewed.",
+      "On the screen, each card shows the other book’s due date, and a “Browse new arrivals” promotion comes first.",
+    ],
+    ask: "Before you look anything up, decide which rule applies. Then repair the groups and decide which loan needs attention first.",
+  },
   constraints: [
     "Preserve the exact book, date and action associations: Field Guide, 24 November, Renew Field Guide; Parks, 2 December, Renew Parks.",
     "Don’t invent renewal limits.",
@@ -632,6 +649,7 @@ const R02_APP = "Canal Community Workshop";
 const r10bScreen: Screen = {
   app: R02_APP,
   title: "Appointment",
+  device: "phone",
   blocks: [
     { type: "appbar", app: R02_APP, title: "Appointment · 320px" },
     {
@@ -662,6 +680,15 @@ export const micReviewAppointment: DecisionActivity = {
   scenario:
     "A review on a new case, proposed for about ten days after the capstone. A repair appointment card at a 320px viewport with 16px gutters must show “Bicycle safety check”, “27 November, 09:30”, “Canal Community Workshop, Rear Courtyard Entrance, Service Desk 12”, the reference BIKE-908 and “View arrival instructions”. The card is 400px wide and 120px high, the location is clipped, the action is positioned absolutely, and a right-to-left label “تعليمات الوصول” sits next to BIKE-908. All text is #1F2937 on white.",
   task: "Without notes, repair width, height, wrapping, action flow and identifier direction, then plan a check for arriving at the right entrance at the right time.",
+  brief: {
+    from: "Canal Community Workshop",
+    messages: [
+      "At a 320px viewport with 16px gutters, our repair appointment card must show “Bicycle safety check”, “27 November, 09:30”, “Canal Community Workshop, Rear Courtyard Entrance, Service Desk 12”, the reference BIKE-908 and “View arrival instructions”.",
+      "Right now the card is 400px wide and 120px high, the location is clipped and the action is positioned absolutely.",
+      "A right-to-left label “تعليمات الوصول” sits next to BIKE-908. All text is #1F2937 on white.",
+    ],
+    ask: "Without notes, repair width, height, wrapping, action flow and identifier direction, then plan a check for arriving at the right entrance at the right time.",
+  },
   constraints: [
     "Usable width is 288px. All required content stays; no invented address or translated facts.",
     "Layout-stress Arabic does not imply full localisation.",

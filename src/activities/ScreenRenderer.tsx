@@ -4,6 +4,7 @@ import { Check, Info, AlertTriangle, Sparkles, X } from "lucide-react";
 import type { Block, BlockTone, Screen } from "@/domain/types";
 import { cn } from "@/components/ui";
 import { useProductI18n as useI18n } from "@/i18n";
+import { DeviceFrame } from "./DeviceFrame";
 
 export type HotspotMark = "unreviewed" | "acceptable" | "problematic" | "correct" | "incorrect";
 
@@ -291,17 +292,12 @@ function BlockView({ block, mode, highlight }: { block: Block; mode?: HotspotMod
 export function ScreenRenderer({ screen, mode, highlight, className, label }: { screen: Screen; mode?: HotspotMode; highlight?: HighlightMode; className?: string; label?: string }) {
   const { tr } = useI18n();
   return (
-    <div className={cn("rounded-xl border border-line-strong bg-pv-bg p-1.5 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]", className)} role="group" aria-label={label ?? tr("{app}: {title} (interface preview)", { app: screen.app, title: screen.title })}>
-      <div className="flex items-center gap-1.5 px-2 pb-1.5 pt-0.5" aria-hidden>
-        <span className="h-2.5 w-2.5 rounded-full bg-[#d4d8e0]" />
-        <span className="h-2.5 w-2.5 rounded-full bg-[#d4d8e0]" />
-        <span className="h-2.5 w-2.5 rounded-full bg-[#d4d8e0]" />
-      </div>
+    <DeviceFrame device={screen.device} className={className} label={label ?? tr("{app}: {title} (interface preview)", { app: screen.app, title: screen.title })}>
       <div className="space-y-3 rounded-lg bg-pv-bg p-4 pt-4">
         {screen.blocks.map((b, i) => (
           <BlockView key={i} block={b} mode={mode} highlight={highlight} />
         ))}
       </div>
-    </div>
+    </DeviceFrame>
   );
 }

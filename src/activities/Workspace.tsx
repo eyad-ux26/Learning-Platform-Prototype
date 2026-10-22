@@ -16,6 +16,7 @@ import { playSfx } from "@/components/sfx";
 import { DesignBenchControls, DesignBenchStage } from "./DesignBench";
 import { CritiqueControls, CritiqueStage, critiqueMarks } from "./Critique";
 import { DecisionControls, DecisionStage, DecisionThread } from "./Decision";
+import { BriefIntro, ClientChat } from "./Brief";
 import { DockContext } from "./dock";
 import { FeedbackPanel } from "./Feedback";
 import { behavioursFor, initialPreviewState, type PreviewState } from "./ProposalPreview";
@@ -48,6 +49,12 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   const [result, setResult] = useState<{ attempt?: Attempt; evaluation: Evaluation } | null>(null);
   const [missing, setMissing] = useState<string[] | null>(null);
   const [section, setSection] = useState<Section>(usableDraft ? "stage" : "brief");
+  // A fresh start opens on the brief alone; once read, it moves to its place in the workspace.
+  const [intro, setIntro] = useState(!usableDraft);
+  const [briefRead, setBriefRead] = useState(!!usableDraft);
+  const [landed, setLanded] = useState(false);
+  const briefRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   // Shared between the controls and the live preview so the preview can show what the current question touches.
   const [benchDim, setBenchDim] = useState<DesignDimension | undefined>();
@@ -225,27 +232,11 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
 
   const brief = (
     <div className="space-y-4">
-      <div className="rounded-[22px] border-[1.5px] border-brand-strong bg-surface p-4">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sk-amber text-sm font-bold text-[#2b1f00]" aria-hidden>{activity.contextLabel.trim()[0]}</span>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-fg">{tr("Client brief")}</p>
-            <p className="font-mono text-[11px] text-subtle">{activity.contextLabel}</p>
-          </div>
-        </div>
-        <p className="mt-3 rounded-2xl rounded-es-sm bg-overlay p-3 text-sm leading-relaxed text-fg">{activity.scenario}</p>
-        <p className="mt-2 ms-auto w-fit rounded-2xl rounded-ee-sm bg-brand px-3 py-2 text-sm font-semibold text-white">{activity.task}</p>
-        {activity.template === "decision" && response.template === "decision" && <DecisionThread activity={activity} choices={response.choices} />}
+      <div ref={briefRef}>
+        <ClientChat activity={activity} read={briefRead}>
+          {activity.template === "decision" && response.template === "decision" && <DecisionThread activity={activity} choices={response.choices} />}
+        </ClientChat>
       </div>
-      <details className="group rounded-2xl border border-line bg-surface">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 font-mono text-xs font-semibold text-accent">
-          {tr("Constraints ({n})", { n: activity.constraints.length })}
-          <span aria-hidden className="transition-transform group-open:rotate-180">⌄</span>
-        </summary>
-        <ul className="list-disc space-y-1 px-4 pb-3 ps-8 text-sm text-muted">
-          {activity.constraints.map((c) => <li key={c}>{c}</li>)}
-        </ul>
-      </details>
       <div>
         <p className="font-mono text-xs font-semibold text-accent">{tr(t.practice.targetSkills)}</p>
         <ul className="mt-2 space-y-2">
@@ -320,7 +311,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   );
 
   return (
-    <div className={cn("mx-auto max-w-[1440px] px-4 sm:px-6", app ? "flex h-[calc(100dvh-3.9rem)] flex-col overflow-hidden pt-2 lg:block lg:h-auto lg:overflow-visible lg:pb-10 lg:pt-4" : "pb-28 pt-4 lg:pb-10")}>
+    <div className={cn("mx-auto max-w-[1440px] px-4 sm:px-6", app ? "flex h-[calc(100dvh-3.9rem)] flex-col overflow-hidden pt-2 lg:block lg:h-auto lg:overflow-visible lg:pb-0 lg:pt-4" : "pb-28 pt-4 lg:pb-10")}>
       {/* Header: a compact one-line bar below lg while working */}
       <div className="flex items-start gap-3 max-lg:items-center max-lg:gap-2 lg:flex-wrap">
         <Link href={backHref} className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-muted hover:text-fg max-lg:mt-0" aria-label={tr("Back")}>
@@ -341,7 +332,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
         </div>
         <div className="flex items-center gap-2">
           {mode === "learner" && (
-            <span className="hidden items-center gap-1.5 text-xs text-subtle md:inline-flex" aria-live="polite">
+            <span className={cn("hidden items-center gap-1.5 text-xs text-subtle md:inline-flex", app && "lg:hidden")} aria-live="polite">
               <CheckCircle2 size={13} aria-hidden /> {savedAt ? tr(t.practice.savedLocally) : tr("Not started")}
             </span>
           )}
@@ -373,12 +364,12 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
       )}
 
       {/* Mobile and tablet section tabs */}
-      <div className={cn("sticky top-16 z-30 -mx-4 mt-4 bg-canvas/95 px-4 py-2 xl:hidden", app && "max-lg:static max-lg:mt-1 max-lg:py-1.5")}>
-        <Tabs numbered label={tr("Workspace sections")} tabs={tabs} value={section} onChange={setSection} />
+      <div ref={tabsRef} className={cn("sticky top-16 z-30 -mx-4 mt-4 bg-canvas/95 px-4 py-2 xl:hidden", app && "max-lg:static max-lg:mt-1 max-lg:py-1.5")}>
+        <Tabs numbered label={tr("Workspace sections")} tabs={tabs} value={section} onChange={setSection} className={cn(landed && "animate-pulse-ring")} />
       </div>
 
       <div className={cn("mt-4 grid gap-6", "lg:grid-cols-[minmax(320px,400px)_1fr] xl:grid-cols-[300px_minmax(340px,400px)_1fr]", app && "max-lg:mt-1 max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col max-lg:gap-0")}>
-        <aside className={cn(vis("brief"), "lg:col-span-2 xl:col-span-1 xl:block", app && "max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:pt-2")} aria-label={tr("Brief")}>
+        <aside className={cn(vis("brief"), "lg:col-span-2 xl:col-span-1 xl:block xl:transition-opacity xl:duration-300", intro && "xl:opacity-0", app && "max-lg:min-h-0 max-lg:flex-1 max-lg:overflow-y-auto max-lg:pt-2")} aria-label={tr("Brief")}>
           <div className="xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pe-1"><ColumnTag n={1} pulse={phase === "working" && !hintsUsed}>{tr("Read first")}</ColumnTag>{brief}</div>
           {app && (
             <div className="sticky bottom-0 -mx-4 mt-4 bg-gradient-to-t from-canvas via-canvas to-transparent px-4 pb-3 pt-6 lg:hidden">
@@ -457,8 +448,13 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
 
       {/* Action bar (lg and up; below lg the dock carries Next / Decide / Submit) */}
       {phase === "working" && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-canvas/95 backdrop-blur max-lg:hidden lg:static lg:mt-8 lg:border-0 lg:bg-transparent">
-          <div className="mx-auto flex max-w-[1440px] items-center gap-2 px-4 py-3 sm:px-6 lg:justify-end lg:px-0">
+        <div className="sticky bottom-0 z-40 -mx-6 mt-6 border-t border-line bg-canvas/90 backdrop-blur max-lg:hidden">
+          <div className="flex items-center justify-end gap-2 px-6 py-3">
+            {mode === "learner" && (
+              <span className="me-auto inline-flex items-center gap-1.5 text-xs text-subtle" aria-live="polite">
+                <CheckCircle2 size={13} aria-hidden /> {savedAt ? tr(t.practice.savedLocally) : tr("Not started")}
+              </span>
+            )}
             <Button variant="ghost" onClick={() => setConfirmReset(true)}>
               <RotateCcw size={15} aria-hidden /> <span className="hidden sm:inline">{tr(t.practice.reset)}</span>
             </Button>
@@ -467,11 +463,28 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
                 <Save size={15} aria-hidden /> <span className="hidden sm:inline">{tr(t.practice.saveExit)}</span><span className="sm:hidden">{tr("Save")}</span>
               </Button>
             )}
-            <Button variant="primary" onClick={doSubmit} className="ms-auto lg:ms-0">
+            <Button variant="primary" onClick={doSubmit}>
               <Send size={15} aria-hidden /> {tr(t.practice.submit)} <span className="ms-1 hidden rounded-md bg-black/20 px-1.5 font-mono text-[11px] sm:inline" aria-hidden>↵</span>
             </Button>
           </div>
         </div>
+      )}
+
+      {intro && phase === "working" && (
+        <BriefIntro
+          activity={activity}
+          title={activity.title}
+          onRead={() => {
+            setBriefRead(true);
+            setSection("stage");
+          }}
+          onDone={() => {
+            setIntro(false);
+            setLanded(true);
+            window.setTimeout(() => setLanded(false), 1700);
+          }}
+          target={() => (window.matchMedia("(min-width: 1280px)").matches ? briefRef.current : tabsRef.current?.querySelector<HTMLElement>('[role="tab"]'))}
+        />
       )}
 
       {/* Help */}

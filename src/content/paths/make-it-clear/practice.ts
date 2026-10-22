@@ -41,6 +41,15 @@ export const micPriority: DecisionActivity = {
   scenario:
     "Sam can attend only after 17:00 and wants to reserve one free beginner workshop next week. The page for “Sketch Your First App” currently opens with a photo caption and a newsletter invitation, followed by the session details in ID order. All dates are fixture dates, not a live calendar.",
   task: "Help Sam decide whether this session fits, then act. Decide what leads, where each remaining item belongs, and which condition would change your order.",
+  brief: {
+    from: "Riverside Workshops",
+    messages: [
+      "Sam wants to book one free beginner workshop next week, but can only come after 17:00.",
+      "Our “Sketch Your First App” page opens with a photo caption and a newsletter invite. The session details come after, in ID order.",
+      "Dates here are practice dates, not a real calendar.",
+    ],
+    ask: "Help Sam see whether this session fits, then book. Decide what comes first, where everything else goes, and what would change your order.",
+  },
   constraints: [
     "Title, date, location, price, availability, Reserve, the cancellation condition and the access link stay available.",
     "Date, location, price, availability and the cancellation condition must be discoverable before committing.",
@@ -66,7 +75,7 @@ export const micPriority: DecisionActivity = {
       choices: [
         {
           id: "summary-first",
-          label: "Title, date, location, price, with Reserve right beside that summary",
+          label: "Title, date, location and price, with Reserve beside them",
           detail: "The decision first.",
           consequence: "Sam sees within the first lines that the session starts at 18:00, is free and is nearby, and the action sits next to the facts that justify it.",
           signals: [{ criterionId: "mic-c1-prominence", met: true, because: "The facts that decide attendance lead, and the action is placed with them rather than ahead of them." }],
@@ -273,6 +282,15 @@ export const micGrouping: DecisionActivity = {
   scenario:
     "Two independent sessions share a page: “Sketch Your First App” (17 November, 18:00, Free, Reserve Sketch) and “Design Your First Service” (18 November, 10:00, EGP 120, Reserve Service). A newsletter link says “Get monthly updates”. Right now the items alternate between the sessions, and every gap is 16px except an 8px gap from the Sketch title to its date.",
   task: "Finish the grouping so someone can tell which date, cost and action belong to each workshop, on a wide screen and when the cards stack.",
+  brief: {
+    from: "Riverside Workshops",
+    messages: [
+      "Our page shows two separate sessions: “Sketch Your First App” (17 November, 18:00, Free) and “Design Your First Service” (18 November, 10:00, EGP 120). Each has its own button: Reserve Sketch and Reserve Service.",
+      "There’s also a newsletter link: “Get monthly updates”.",
+      "Right now the items alternate between the two sessions. Every gap is 16px, except 8px between the Sketch title and its date.",
+    ],
+    ask: "Group it so people can tell which date, price and button belong to each workshop, on a wide screen and when the cards stack.",
+  },
   constraints: [
     "Keep all nine items. Session facts can’t be relabelled or copied between groups.",
     "The newsletter serves a separate purpose.",
@@ -475,6 +493,15 @@ export const micEmphasis: DecisionActivity = {
   scenario:
     "The workshop page gives every item 24px bold type, both Reserve and the newsletter are filled buttons, and the cancellation condition is #AAAAAA on white. You can only use the supplied type and colour tokens.",
   task: "Create distinct roles for the title, the facts, the condition and the actions, and choose readable foreground and background pairs.",
+  brief: {
+    from: "Riverside Workshops",
+    messages: [
+      "On our workshop page, every item is 24px bold.",
+      "Reserve and the newsletter are both filled buttons, and the cancellation condition is #AAAAAA on white.",
+      "Please use only the type and colour tokens we supplied.",
+    ],
+    ask: "Create distinct roles for the title, the facts, the condition and the actions, and choose readable foreground and background pairs.",
+  },
   constraints: [
     "No opacity tricks. Ordinary 14px and 16px text needs a contrast of at least 4.5:1.",
     "Large text is at least 18 point, or 14 point bold; not every bold label qualifies.",
@@ -692,6 +719,14 @@ export const micResponsive: DecisionActivity = {
   scenario:
     "The workshop page is a fixed 1000px row at every viewport. Its source order is H (title), P (optional image), B (Reserve), N (newsletter), D (date, location, price and status) and T (cancellation condition and access link). You need rules for 1280, 768, 360 and 320 CSS pixels.",
   task: "Specify the change from wide to narrow, check all four widths, and say which checks are calculations and which need a browser.",
+  brief: {
+    from: "Riverside Workshops",
+    messages: [
+      "Our workshop page is a fixed 1000px row on every screen.",
+      "Its source order is H (title), P (optional image), B (Reserve), N (newsletter), D (date, location, price and status) and T (cancellation condition and access link).",
+    ],
+    ask: "Set rules for 1280, 768, 360 and 320px: how the page changes from wide to narrow, a check at each width, and which checks are calculations and which need a browser.",
+  },
   constraints: [
     "Usable width is the viewport minus 32px of gutters.",
     "The two-column preset needs a main column of at least 360px, a side column of at least 280px and a 24px gap.",
@@ -923,6 +958,14 @@ export const micStretch: CritiqueActivity = {
   scenario:
     "A narrow 320px workshop card now has longer English text and an Arabic layout-stress version. For this fixture the price is EGP 120 and the booking code is WS-204. The card was built for short labels.",
   task: "Review each highlighted part of the card. Decide whether it keeps the facts intact, and choose the reason that explains your judgement.",
+  brief: {
+    from: "Riverside Workshops",
+    messages: [
+      "Our narrow 320px workshop card now has longer English text and an Arabic version to stress the layout.",
+      "It was built for short labels. The price is EGP 120 and the booking code is WS-204.",
+    ],
+    ask: "Check each highlighted part: does it keep the facts intact? Choose the reason for each judgement.",
+  },
   constraints: [
     "Expected facts: title, date, location, price, code, action and condition.",
     "WS-204 stays in that character order. Don’t reverse all digits, dates or icons as a generic rule.",
@@ -936,6 +979,7 @@ export const micStretch: CritiqueActivity = {
   screen: {
     app: APP,
     title: "Workshop card · 320px",
+    device: "phone",
     blocks: [
       { type: "appbar", app: APP, title: "Workshop card · 320px · two fixtures" },
       {
@@ -1027,6 +1071,15 @@ export const micCritique: DecisionActivity = {
   scenario:
     "Your revised workshop page puts the decision summary beside Reserve on desktop and before it on narrow screens; all required text uses readable pairs. Two reviewers disagree with it. The product owner says the task is choosing the correct session. You can run a moderated task with five recruited participants as an initial diagnostic study. No user test has run yet.",
   task: "Respond to both reviewers, then plan a check for the user’s goal without claiming results you don’t have.",
+  brief: {
+    from: "Riverside Workshops",
+    messages: [
+      "Your revised page puts the decision summary beside Reserve on desktop and before it on narrow screens. All required text uses readable pairs.",
+      "Two reviewers disagree with it. Our product owner says the task is choosing the correct session.",
+      "You can run a moderated task with five recruited participants as an initial diagnostic study. No user test has run yet.",
+    ],
+    ask: "Respond to both reviewers, then plan a check for the user’s goal without claiming results you don’t have.",
+  },
   constraints: [
     "The task must not tell participants the answer or point at a control.",
     "Cancellation stays available before commitment.",
@@ -1048,7 +1101,7 @@ export const micCritique: DecisionActivity = {
       choices: [
         {
           id: "adapt",
-          label: "Adapt: keep Reserve prominent, right beside the date, place and price; keep the conditions before it",
+          label: "Adapt: keep Reserve prominent beside the date, place and price, with the conditions before it",
           detail: "Take the goal, not the instruction.",
           consequence: "Returning visitors find Reserve quickly, and first-time visitors still see the facts and the condition before acting.",
           signals: [
@@ -1099,7 +1152,7 @@ export const micCritique: DecisionActivity = {
       choices: [
         {
           id: "reject-roles",
-          label: "Reject: equal sizing removes the difference between deciding facts and extras, and nothing is hidden today",
+          label: "Reject: equal sizes erase the difference between deciding facts and extras, and nothing is hidden today",
           detail: "Keep the roles.",
           consequence: "The page keeps a clear route, and S’s concern is answered with what is on the page.",
           signals: [{ criterionId: "mic-c5-consequence", met: true, because: "You named the consequence of the request and why the current roles serve the task." }],
@@ -1108,7 +1161,7 @@ export const micCritique: DecisionActivity = {
         },
         {
           id: "compare",
-          label: "Propose a comparison: run the same task on both versions and see whether anyone misses a fact",
+          label: "Compare: run the same task on both versions and see whether anyone misses a fact",
           detail: "Test the concern.",
           consequence: "The disagreement becomes a question you can observe instead of a debate about taste.",
           signals: [{ criterionId: "mic-c5-consequence", met: true, because: "When a benefit is uncertain, comparing variants under a specific task is a sound response." }],
@@ -1168,7 +1221,7 @@ export const micCritique: DecisionActivity = {
       choices: [
         {
           id: "honest",
-          label: "No results yet. Correct facts defined in advance; five sessions may reveal problems but can’t show how common they are",
+          label: "No results yet. Correct facts set in advance; five sessions may reveal problems, not how common they are",
           detail: "Plan, not findings.",
           consequence: "The team knows what will be observed and what the study can and can’t tell them.",
           signals: [{ criterionId: "mic-c5-check", met: true, because: "Predicted results are kept separate from observations, and the limits of five sessions are stated." }],
