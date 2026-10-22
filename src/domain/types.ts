@@ -247,9 +247,23 @@ export interface DecisionChoice {
   /**
    * Parts of the node's screen this choice touches. While the learner considers the option, these hotspots are
    * highlighted in the preview with the given tag ("12 client dates"). Hotspot ids refer to blocks of `node.screen`.
+   * The optional fields let the preview apply the change, so the learner sees the screen after the option.
    */
-  affects?: { hotspot: string; tag: string }[];
+  affects?: Affect[];
   next?: string;
+}
+
+export interface Affect {
+  hotspot: string;
+  tag: string;
+  /** Moves the block to this position at the top of the screen (1 = first, after the app bar). */
+  place?: number;
+  /** Moves the block just before the block with this hotspot. */
+  before?: string;
+  /** Moves the block to the end of the screen. */
+  toEnd?: boolean;
+  /** Removes the block from the screen. */
+  hide?: boolean;
 }
 
 export interface DecisionNode {

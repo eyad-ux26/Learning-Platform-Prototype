@@ -317,6 +317,10 @@ const eg: Record<string, string> = {
   "Got it. I’ll make the decisions one at a time.": "تمام. هاخد القرارات واحد واحد.",
   "New brief": "طلب جديد",
   "I’ve read the brief": "قريت الطلب",
+  "What this option changes": "الاختيار ده بيغيّر إيه",
+  "Compare": "قارن",
+  "Pick an option to see what it changes on the screen.": "اختار اختيار عشان تشوف بيغيّر إيه في الشاشة.",
+  "This option doesn’t change the screen.": "الاختيار ده مش بيغيّر الشاشة.",
 };
 
 export default eg;

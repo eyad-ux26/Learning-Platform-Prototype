@@ -170,3 +170,5 @@ body:lang(ar) { line-height: 1.7; }
   content: attr(data-tag); position: absolute; inset-inline-start: -9px; top: -31px; z-index: 3; padding: 3px 8px; border-radius: 7px;
   background: #7b6cff; color: #fff; font: 600 11px var(--font-mono); white-space: nowrap; pointer-events: none;
 }
+/* Numbered pins replace the name tag; the change list beside the screen carries the words. */
+.hl.hl-pin::after, .hl.hl-pin::before { content: none; }

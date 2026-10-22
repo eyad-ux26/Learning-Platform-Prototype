@@ -20,8 +20,10 @@ export interface HotspotMode {
 export interface HighlightMode {
   /** hotspot id → tag shown on the highlighted part. */
   active: Record<string, string>;
-  /** Parts that matter in this step but are not the current focus: drawn with a dashed outline. */
-  related?: string[];
+  /** hotspot id → pin number, matching a list of changes shown beside the screen. Pinned parts show the number instead of the tag. */
+  pins?: Record<string, number>;
+  /** Parts the option removes: shown faded and struck through so the removal is visible. */
+  removed?: string[];
 }
 
 const toneBox: Record<BlockTone, string> = {
@@ -97,18 +99,26 @@ function Hotspot({ id, mode, children, inset }: { id?: string; mode?: HotspotMod
 function HighlightSpot({ id, highlight, children }: { id?: string; highlight?: HighlightMode; children: React.ReactNode }) {
   if (!id || !highlight) return <>{children}</>;
   const tag = highlight.active[id];
+  const pin = highlight.pins?.[id];
   const anyActive = Object.keys(highlight.active).length > 0;
-  const related = highlight.related?.includes(id);
+  const gone = highlight.removed?.includes(id);
   return (
     <div
-      data-tag={tag}
+      data-tag={pin === undefined ? tag : undefined}
+      aria-label={pin !== undefined ? `${pin}. ${tag}` : undefined}
       className={cn(
         "relative -m-1.5 rounded-lg p-1.5 transition-[opacity,background-color,outline-color]",
-        tag !== undefined && "hl sel-snap bg-[rgba(123,108,255,0.09)] outline-2 outline-offset-4 outline-[#7b6cff]",
-        tag === undefined && related && "outline-dashed outline-[1.5px] outline-offset-[3px] outline-[rgba(106,92,240,0.55)]",
-        tag === undefined && anyActive && "opacity-60",
+        tag !== undefined && pin === undefined && "hl sel-snap bg-[rgba(123,108,255,0.09)] outline-2 outline-offset-4 outline-[#7b6cff]",
+        pin !== undefined && "hl hl-pin animate-rise bg-[rgba(123,108,255,0.12)] shadow-[inset_3px_0_0_#7b6cff] rtl:shadow-[inset_-3px_0_0_#7b6cff]",
+        tag === undefined && anyActive && "opacity-40",
+        gone && "line-through opacity-50 grayscale",
       )}
     >
+      {pin !== undefined && (
+        <span aria-hidden className="absolute -start-3 top-1/2 z-10 flex h-[22px] min-w-[22px] -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-[#7b6cff] font-mono text-[11px] font-semibold text-white">
+          {pin}
+        </span>
+      )}
       {children}
     </div>
   );
@@ -222,13 +232,13 @@ function BlockView({ block, mode, highlight }: { block: Block; mode?: HotspotMod
               {block.rows.map((r, i) => {
                 const rid = block.rowHotspots?.[i];
                 const tag = rid && highlight ? highlight.active[rid] : undefined;
-                const rel = !!rid && !!highlight?.related?.includes(rid);
+                const pin = rid && highlight ? highlight.pins?.[rid] : undefined;
                 return (
-                  <tr key={i} className={cn(tag !== undefined && "bg-[rgba(123,108,255,0.12)] outline outline-2 -outline-offset-2 outline-[#7b6cff]", tag === undefined && rel && "outline-dashed outline-[1.5px] -outline-offset-2 outline-[rgba(106,92,240,0.55)]")}>
+                  <tr key={i} className={cn(tag !== undefined && "bg-[rgba(123,108,255,0.12)] outline outline-2 -outline-offset-2 outline-[#7b6cff]")}>
                     {r.map((c, j) => (
                       <td key={j} className="px-3 py-2">
                         {c}
-                        {j === 0 && tag !== undefined && <span className="ms-2 rounded bg-[#7b6cff] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-white">{tag}</span>}
+                        {j === 0 && tag !== undefined && <span className="ms-2 rounded bg-[#7b6cff] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-white">{pin ?? tag}</span>}
                       </td>
                     ))}
                   </tr>
