@@ -259,8 +259,8 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
               <div key={selected.id} aria-live="polite" className="slide-in flex flex-col gap-4 rounded-[22px] border-[1.5px] border-brand-strong bg-surface p-[22px]">
                 <h2 className="font-display text-[26px] font-extrabold leading-[1.05]">{selected.title}</h2>
                 <div className="flex items-end gap-2">
-                  <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-sk-amber text-xs font-bold text-[#2b1f00]" aria-hidden>{selected.contextLabel.trim()[0]}</span>
-                  <span className="rounded-[14px] rounded-es-sm bg-overlay px-3 py-[9px] text-sm leading-snug">{selected.task}</span>
+                  <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-sk-amber text-xs font-bold text-[#2b1f00]" aria-hidden>{(selected.brief?.from ?? selected.contextLabel).trim()[0]}</span>
+                  <span className="line-clamp-3 rounded-[14px] rounded-es-sm bg-overlay px-3 py-[9px] text-sm leading-snug">{selected.brief?.ask ?? selected.task}</span>
                 </div>
                 <p className="font-mono text-[11px] text-muted">{selected.contextLabel} · {tr(TEMPLATE[selected.template])} · {tr("{n} min", { n: selected.estimatedMinutes })}</p>
                 <div className="flex flex-wrap gap-1.5">

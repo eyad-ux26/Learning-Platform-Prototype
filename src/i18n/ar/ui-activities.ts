@@ -182,6 +182,10 @@ const ar: Record<string, string> = {
   "Got it. I’ll make the decisions one at a time.": "تمام. سأتخذ القرارات واحدًا تلو الآخر.",
   "New brief": "طلب جديد",
   "I’ve read the brief": "قرأت الطلب",
+  "What this option changes": "ما الذي يغيّره هذا الخيار",
+  "Compare": "قارن",
+  "Pick an option to see what it changes on the screen.": "اختر خيارًا لترى ما يغيّره في الشاشة.",
+  "This option doesn’t change the screen.": "هذا الخيار لا يغيّر الشاشة.",
 };
 
 export default ar;

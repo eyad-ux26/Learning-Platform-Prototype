@@ -80,11 +80,11 @@ export const micPriority: DecisionActivity = {
           consequence: "Sam sees within the first lines that the session starts at 18:00, is free and is nearby, and the action sits next to the facts that justify it.",
           signals: [{ criterionId: "mic-c1-prominence", met: true, because: "The facts that decide attendance lead, and the action is placed with them rather than ahead of them." }],
           affects: [
-            { hotspot: "w1a", tag: "1st" },
-            { hotspot: "w1b", tag: "2nd" },
-            { hotspot: "w1c", tag: "3rd" },
-            { hotspot: "w1d", tag: "4th" },
-            { hotspot: "w1f", tag: "Beside the summary" },
+            { hotspot: "w1a", tag: "1st", place: 1 },
+            { hotspot: "w1b", tag: "2nd", place: 2 },
+            { hotspot: "w1c", tag: "3rd", place: 3 },
+            { hotspot: "w1d", tag: "4th", place: 4 },
+            { hotspot: "w1f", tag: "Beside the summary", place: 5 },
           ],
           next: "p2",
         },
@@ -95,10 +95,11 @@ export const micPriority: DecisionActivity = {
           consequence: "Sam rules the session in on its time straight away, and the title still names what the date belongs to.",
           signals: [{ criterionId: "mic-c1-prominence", met: true, because: "Leading with the date is a defensible alternative: time is what rules sessions out for Sam, and the title stays attached to it." }],
           affects: [
-            { hotspot: "w1b", tag: "1st" },
-            { hotspot: "w1a", tag: "2nd" },
-            { hotspot: "w1c", tag: "3rd" },
-            { hotspot: "w1d", tag: "4th" },
+            { hotspot: "w1b", tag: "1st", place: 1 },
+            { hotspot: "w1a", tag: "2nd", place: 2 },
+            { hotspot: "w1c", tag: "3rd", place: 3 },
+            { hotspot: "w1d", tag: "4th", place: 4 },
+            { hotspot: "w1f", tag: "Beside the summary", place: 5 },
           ],
           next: "p2",
         },
@@ -109,21 +110,21 @@ export const micPriority: DecisionActivity = {
           consequence: "Sam reaches the button before learning the time, and has to scroll past the promotion to find out whether 18:00 works.",
           signals: [{ criterionId: "mic-c1-prominence", met: false, because: "The action bypasses the decision: Sam can act before seeing the time, which is the fact that decides attendance." }],
           affects: [
-            { hotspot: "w1a", tag: "1st" },
-            { hotspot: "w1f", tag: "2nd" },
+            { hotspot: "w1a", tag: "1st", place: 1 },
+            { hotspot: "w1f", tag: "2nd", place: 2 },
             { hotspot: "w1b", tag: "Buried" },
           ],
           next: "p2",
         },
         {
           id: "promo-first",
-          label: "Keep the photo and the newsletter first: bright content draws people in",
+          label: "Keep the photo and newsletter first, to catch the eye",
           detail: "The current order.",
           consequence: "Sam reads a caption and a subscription offer before any fact about the session.",
           signals: [{ criterionId: "mic-c1-prominence", met: false, because: "Attention-grabbing content is not the same as content that answers Sam’s question; promotion leads while the decision facts wait." }],
           affects: [
-            { hotspot: "w1i", tag: "1st" },
-            { hotspot: "w1j", tag: "2nd" },
+            { hotspot: "w1i", tag: "1st", place: 1 },
+            { hotspot: "w1j", tag: "2nd", place: 2 },
           ],
           next: "p2",
         },
@@ -138,13 +139,13 @@ export const micPriority: DecisionActivity = {
       choices: [
         {
           id: "supporting-before",
-          label: "Supporting: in the decision area before Reserve, smaller than the facts",
+          label: "Before Reserve, in smaller text than the facts",
           detail: "Present, quieter.",
           consequence: "Sam knows the cancellation rule before reserving, and the access link is one tap away.",
           signals: [{ criterionId: "mic-c1-complete", met: true, because: "Supporting detail stays on the decision route; lower prominence does not mean absence." }],
           affects: [
-            { hotspot: "w1g", tag: "Supporting · before Reserve" },
-            { hotspot: "w1h", tag: "Supporting · explicit link" },
+            { hotspot: "w1g", tag: "Supporting · before Reserve", before: "w1f" },
+            { hotspot: "w1h", tag: "Supporting · explicit link", before: "w1f" },
           ],
           next: "p3",
         },
@@ -155,8 +156,8 @@ export const micPriority: DecisionActivity = {
           consequence: "The page is easier to scan, but Sam reserves without seeing that cancellation closes 24 hours before the start.",
           signals: [{ criterionId: "mic-c1-complete", met: false, because: "Moving a required condition off the decision route makes the page cleaner by making the decision less informed." }],
           affects: [
-            { hotspot: "w1g", tag: "Hidden" },
-            { hotspot: "w1h", tag: "Hidden" },
+            { hotspot: "w1g", tag: "Hidden", hide: true },
+            { hotspot: "w1h", tag: "Hidden", hide: true },
           ],
           next: "p3",
         },
@@ -166,7 +167,7 @@ export const micPriority: DecisionActivity = {
           detail: "One line shorter.",
           consequence: "Sam has no way to know the condition exists until it matters.",
           signals: [{ criterionId: "mic-c1-complete", met: false, because: "Deleting a required condition is a critical failure: priority decides prominence, not presence." }],
-          affects: [{ hotspot: "w1g", tag: "Removed" }],
+          affects: [{ hotspot: "w1g", tag: "Removed", hide: true }],
           next: "p3",
         },
       ],
@@ -180,13 +181,13 @@ export const micPriority: DecisionActivity = {
       choices: [
         {
           id: "optional-last",
-          label: "After the decision and Reserve; the newsletter is never a step to reserve",
+          label: "At the end, after Reserve: the newsletter isn’t needed to book",
           detail: "Out of the way.",
           consequence: "Anyone interested still finds the newsletter, and nobody has to pass it to book.",
           signals: [{ criterionId: "mic-c1-prominence", met: true, because: "Optional discovery follows the decision instead of competing with it." }],
           affects: [
-            { hotspot: "w1i", tag: "Optional · last" },
-            { hotspot: "w1j", tag: "Optional · last" },
+            { hotspot: "w1i", tag: "Optional · last", toEnd: true },
+            { hotspot: "w1j", tag: "Optional · last", toEnd: true },
           ],
           next: "p4",
         },
@@ -196,7 +197,7 @@ export const micPriority: DecisionActivity = {
           detail: "More signups.",
           consequence: "Sam has to pass a subscription offer between the facts and the button that acts on them.",
           signals: [{ criterionId: "mic-c1-prominence", met: false, because: "Promotion placed inside the decision interrupts the route from facts to action." }],
-          affects: [{ hotspot: "w1j", tag: "Between facts and Reserve" }],
+          affects: [{ hotspot: "w1j", tag: "Between facts and Reserve", before: "w1f" }],
           next: "p4",
         },
       ],
@@ -210,7 +211,7 @@ export const micPriority: DecisionActivity = {
       choices: [
         {
           id: "full",
-          label: "The session fills: its status and the next available step lead",
+          label: "The session is full: show that first, with the next option",
           detail: "Availability changes the decision.",
           consequence: "A visitor sees “Session full” and the waiting list before a Reserve button that no longer works.",
           signals: [{ criterionId: "mic-c1-prominence", met: true, because: "The user’s decision changed, so the order changes with it." }],
@@ -316,7 +317,7 @@ export const micGrouping: DecisionActivity = {
       choices: [
         {
           id: "by-session",
-          label: "One group per session with its title, date, price and action; the newsletter on its own",
+          label: "Each session in its own group (title, date, price, button); the newsletter apart",
           detail: "Each session is one story.",
           consequence: "Anyone can tell that EGP 120 and Reserve Service belong to “Design Your First Service”.",
           signals: [{ criterionId: "mic-c2-association", met: true, because: "Each session’s four facts sit together and nothing is shared between groups." }],
@@ -333,7 +334,7 @@ export const micGrouping: DecisionActivity = {
         },
         {
           id: "shared-row",
-          label: "Two columns of facts with a shared action row underneath",
+          label: "Facts in two columns, both buttons in one row below",
           detail: "Tidy rows.",
           consequence: "The titles separate, but the two Reserve buttons sit in a footer and their association is guessed from position.",
           signals: [{ criterionId: "mic-c2-association", met: false, because: "A shared action row breaks the relationship between each action and its session." }],
@@ -345,7 +346,7 @@ export const micGrouping: DecisionActivity = {
         },
         {
           id: "pills",
-          label: "Colour-matched pills: the Sketch title with EGP 120 and Reserve Service",
+          label: "Match colours: the Sketch title with EGP 120 and Reserve Service",
           detail: "Matching colours.",
           consequence: "Someone books Sketch expecting to pay EGP 120, or reserves the wrong session.",
           signals: [{ criterionId: "mic-c2-association", met: false, because: "A price and an action are assigned to the wrong session. That is a factual error, whatever the colours say." }],
@@ -417,7 +418,7 @@ export const micGrouping: DecisionActivity = {
       choices: [
         {
           id: "stack-whole",
-          label: "Stack whole groups: all of Sketch, then all of Service, then the newsletter",
+          label: "Stack whole groups: Sketch, then Service, then the newsletter",
           detail: "Groups move as units.",
           consequence: "The relationship holds at any width.",
           signals: [{ criterionId: "mic-c2-association", met: true, because: "Whole groups stack, so every fact stays with its session at narrow widths." }],
@@ -621,7 +622,7 @@ export const micEmphasis: DecisionActivity = {
       choices: [
         {
           id: "filled-plain",
-          label: "Reserve filled brand with a white label; the newsletter and access link as plain brand text",
+          label: "Reserve as a filled button; the newsletter and access link as plain links",
           detail: "One primary action.",
           consequence: "Reserve is clearly the main action; the newsletter stays discoverable. Both pairs are about 6.70:1.",
           signals: [
@@ -825,23 +826,23 @@ export const micResponsive: DecisionActivity = {
       choices: [
         {
           id: "hdtbpn",
-          label: "H, D, T, B, P, N",
+          label: "Title, details, conditions, Reserve, image, newsletter",
           detail: "Decision, then action, then extras.",
           consequence: "Title, facts and conditions come before Reserve; the optional blocks come last.",
           signals: [{ criterionId: "mic-c3-order", met: true, because: "The sequence still makes sense without the columns: decide, then act, then discover." }],
           affects: [
-            { hotspot: "h", tag: "1" },
-            { hotspot: "d", tag: "2" },
-            { hotspot: "t", tag: "3" },
-            { hotspot: "b", tag: "4" },
-            { hotspot: "p", tag: "5" },
-            { hotspot: "n", tag: "6" },
+            { hotspot: "h", tag: "1", place: 1 },
+            { hotspot: "d", tag: "2", place: 2 },
+            { hotspot: "t", tag: "3", place: 3 },
+            { hotspot: "b", tag: "4", place: 4 },
+            { hotspot: "p", tag: "5", place: 5 },
+            { hotspot: "n", tag: "6", place: 6 },
           ],
           next: "r4",
         },
         {
           id: "current",
-          label: "H, P, B, N, D, T (the current order)",
+          label: "Title, image, Reserve, newsletter, details, conditions (current order)",
           detail: "No change.",
           consequence: "On a phone Reserve and the newsletter come before any fact about the session.",
           signals: [{ criterionId: "mic-c3-order", met: false, because: "The action and the promotion come before the facts that give the action its meaning." }],
@@ -853,11 +854,14 @@ export const micResponsive: DecisionActivity = {
         },
         {
           id: "hbndtp",
-          label: "H, B, N, D, T, P",
+          label: "Title, Reserve, newsletter, details, conditions, image",
           detail: "Action high up.",
           consequence: "A screen reader user hears the newsletter between Reserve and the date.",
           signals: [{ criterionId: "mic-c3-order", met: false, because: "Unrelated content interleaves the action and the facts it depends on." }],
-          affects: [{ hotspot: "n", tag: "Between Reserve and facts" }],
+          affects: [
+            { hotspot: "n", tag: "Between Reserve and facts", before: "d" },
+            { hotspot: "p", tag: "Last", toEnd: true },
+          ],
           next: "r4",
         },
       ],
@@ -871,7 +875,7 @@ export const micResponsive: DecisionActivity = {
       choices: [
         {
           id: "hide-p",
-          label: "Only the optional image P; the newsletter stays, after the decision",
+          label: "Only the optional image; the newsletter stays, after the details",
           detail: "Optional content only.",
           consequence: "Every fact Sam needs is still on the page.",
           signals: [{ criterionId: "mic-c3-order", met: true, because: "Only optional content is hidden; required content changes arrangement, not presence." }],
@@ -880,7 +884,7 @@ export const micResponsive: DecisionActivity = {
         },
         {
           id: "hide-d",
-          label: "Collapse D behind “More details” on phones",
+          label: "Fold the details behind “More details” on phones",
           detail: "Shorter page.",
           consequence: "On a phone people see a Reserve button without the date or the price.",
           signals: [{ criterionId: "mic-c3-order", met: false, because: "Hiding required decision facts on small screens is a critical failure: below the fold is fine, absent is not." }],
@@ -889,7 +893,7 @@ export const micResponsive: DecisionActivity = {
         },
         {
           id: "hide-t",
-          label: "Hide T: the conditions take too much space",
+          label: "Hide the conditions: they take too much space",
           detail: "Fewer lines.",
           consequence: "Phone users reserve without the cancellation rule or the access link.",
           signals: [{ criterionId: "mic-c3-order", met: false, because: "Conditions needed before commitment can’t disappear because they take space; change the wrapping instead." }],
@@ -907,7 +911,7 @@ export const micResponsive: DecisionActivity = {
       choices: [
         {
           id: "calc-vs-browser",
-          label: "The arithmetic fits at all four widths; wrapping, enlarged text and focus order still need a browser check around 696px",
+          label: "The maths fits all four widths; wrapping, zoomed text and focus order still need a browser check near 696px",
           detail: "Calculated versus rendered.",
           consequence: "The next person knows exactly what was checked and what wasn’t.",
           signals: [{ criterionId: "mic-c3-fit", met: true, because: "A calculated fit is kept separate from rendered evidence, and the transition width is named." }],
@@ -1116,7 +1120,7 @@ export const micCritique: DecisionActivity = {
         },
         {
           id: "keep",
-          label: "Keep the current position: first-time visitors need the date before acting; check it in the task",
+          label: "Keep it where it is: first-time visitors need the date first; check this in the test",
           detail: "Hold, with a reason.",
           consequence: "The layout stays, and the task will show whether people miss Reserve.",
           signals: [

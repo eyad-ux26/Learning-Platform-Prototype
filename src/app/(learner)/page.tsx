@@ -102,14 +102,15 @@ export default function HomePage() {
               <p className="font-mono text-xs font-semibold text-[#d4cfff]">{isNew ? tr("Welcome, {name}", { name: firstName }) : tr("Welcome back, {name}", { name: firstName })}</p>
               {heroActivity ? (
                 <>
-                  <div className="mt-3 flex items-end gap-2">
-                    <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-sk-amber text-xs font-bold text-[#2b1f00]" aria-hidden>{heroActivity.contextLabel.trim()[0]}</span>
-                    <p className="rounded-[14px] rounded-es-sm bg-white/[.16] px-3 py-2 text-sm text-white">{heroActivity.task}</p>
-                  </div>
-                  <h1 id="welcome" className="mt-3.5 text-[34px] font-extrabold leading-[.98] tracking-[-0.03em] text-white sm:text-5xl lg:text-[52px]">{heroActivity.title}</h1>
-                  <p className="mt-1.5 font-mono text-xs text-[#dcd8ff]">
+                  <h1 id="welcome" className="mt-3 text-[34px] font-extrabold leading-[.98] tracking-[-0.03em] text-white sm:text-5xl lg:text-[52px]">{heroActivity.title}</h1>
+                  <p className="mt-2 font-mono text-xs text-[#dcd8ff]">
                     {flagship!.bundle.meta.title} · {resume ? tr("Unfinished response saved {when}.", { when: dateTime(resume.at) }) : isNew ? tr("Free sample · covers all four skills") : rec?.type === "activity" ? L(rec.reason) : ""}
                   </p>
+                  {/* The client's ask, kept to two lines so the title stays the first thing read. */}
+                  <div className="mt-4 flex max-w-xl items-end gap-2">
+                    <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-sk-amber text-[11px] font-bold text-[#2b1f00]" aria-hidden>{(heroActivity.brief?.from ?? heroActivity.contextLabel).trim()[0]}</span>
+                    <p className="line-clamp-2 rounded-[14px] rounded-es-sm bg-white/[.14] px-3 py-2 text-[13px] leading-snug text-white/90">{heroActivity.brief?.ask ?? heroActivity.task}</p>
+                  </div>
                 </>
               ) : rec?.type === "complete" && flagship ? (
                 <h1 id="welcome" className="mt-3 text-4xl font-extrabold leading-[.98] tracking-[-0.03em] text-white sm:text-5xl">{tr("You completed {title}", { title: flagship.bundle.meta.title })}</h1>

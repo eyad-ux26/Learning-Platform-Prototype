@@ -89,28 +89,28 @@ export const micCapstone: DecisionActivity = {
       choices: [
         {
           id: "title-first",
-          label: "The title, then the deadline, location, what to bring and the code; “I’m ready to collect” after that group",
+          label: "Title, deadline, place, what to bring and code first; then “I’m ready to collect”",
           detail: "Decision before action.",
           consequence: "Noor knows where and by when before confirming.",
           signals: [{ criterionId: "mic-c1-prominence", met: true, because: "The facts that decide a successful pickup lead, and the action follows them." }],
           affects: [
-            { hotspot: "c1", tag: "1st" },
-            { hotspot: "c3", tag: "2nd" },
-            { hotspot: "c4", tag: "3rd" },
-            { hotspot: "c5", tag: "4th" },
+            { hotspot: "c1", tag: "1st", place: 1 },
+            { hotspot: "c3", tag: "2nd", place: 2 },
+            { hotspot: "c4", tag: "3rd", place: 3 },
+            { hotspot: "c5", tag: "4th", place: 4 },
             { hotspot: "c8", tag: "After the decision group" },
           ],
           next: "k2",
         },
         {
           id: "deadline-first",
-          label: "The deadline as the leading line, then the title and the rest of the decision group",
+          label: "The deadline first, then the title and the other key facts",
           detail: "Urgency leads.",
           consequence: "Noor sees “Collect by Friday 20 November at 18:00” before anything else.",
           signals: [{ criterionId: "mic-c1-prominence", met: true, because: "Leading with the deadline is justified when urgency is the main risk." }],
           affects: [
-            { hotspot: "c3", tag: "1st" },
-            { hotspot: "c1", tag: "2nd" },
+            { hotspot: "c3", tag: "1st", place: 1 },
+            { hotspot: "c1", tag: "2nd", place: 2 },
           ],
           next: "k2",
         },
@@ -121,8 +121,8 @@ export const micCapstone: DecisionActivity = {
           consequence: "Noor scrolls past a promotion before learning the deadline.",
           signals: [{ criterionId: "mic-c1-prominence", met: false, because: "Promotion leads while the deadline and location wait." }],
           affects: [
-            { hotspot: "c11", tag: "1st" },
-            { hotspot: "c12", tag: "2nd" },
+            { hotspot: "c11", tag: "1st", place: 1 },
+            { hotspot: "c12", tag: "2nd", place: 2 },
           ],
           next: "k2",
         },
@@ -132,7 +132,7 @@ export const micCapstone: DecisionActivity = {
           detail: "Fast confirmation.",
           consequence: "Noor can confirm before seeing what to bring.",
           signals: [{ criterionId: "mic-c1-prominence", met: false, because: "The confirmation bypasses the facts Noor needs before confirming." }],
-          affects: [{ hotspot: "c8", tag: "1st" }],
+          affects: [{ hotspot: "c8", tag: "1st", place: 1 }],
           next: "k2",
         },
       ],
@@ -146,7 +146,7 @@ export const micCapstone: DecisionActivity = {
       choices: [
         {
           id: "c1-c7-c10",
-          label: "C1–C7 and the step-free entrance link C10; C11 and C12 optional, last",
+          label: "All the pickup facts and the step-free entrance link; the promotion and image last",
           detail: "Everything relevant.",
           consequence: "Noor knows the loan period and the extension option before confirming.",
           signals: [{ criterionId: "mic-c1-complete", met: true, because: "Every fact relevant to the pickup is available before confirmation." }],
@@ -154,20 +154,20 @@ export const micCapstone: DecisionActivity = {
             { hotspot: "c6", tag: "Kept" },
             { hotspot: "c7", tag: "Kept" },
             { hotspot: "c10", tag: "Kept" },
-            { hotspot: "c11", tag: "Optional · last" },
-            { hotspot: "c12", tag: "Optional · last" },
+            { hotspot: "c11", tag: "Optional · last", toEnd: true },
+            { hotspot: "c12", tag: "Optional · last", toEnd: true },
           ],
           next: "k3",
         },
         {
           id: "help-page",
-          label: "C1–C5 only; the loan period and the extension move to a help page",
+          label: "Only the first five facts; the loan period and extension go to a help page",
           detail: "Shorter page.",
           consequence: "Noor confirms without knowing that an extension must be requested before the deadline.",
           signals: [{ criterionId: "mic-c1-complete", met: false, because: "The extension condition matters before the deadline; moving it off the page makes the decision less informed." }],
           affects: [
-            { hotspot: "c6", tag: "Moved away" },
-            { hotspot: "c7", tag: "Moved away" },
+            { hotspot: "c6", tag: "Moved away", hide: true },
+            { hotspot: "c7", tag: "Moved away", hide: true },
           ],
           next: "k3",
         },
@@ -220,7 +220,7 @@ export const micCapstone: DecisionActivity = {
       choices: [
         {
           id: "roles",
-          label: "Title 32px; body 16px ink; conditions 14px muted; “I’m ready” filled brand with white; the extension as a plain secondary action",
+          label: "Title 32px, body 16px, conditions 14px muted; “I’m ready” as the filled button; the extension as a plain button",
           detail: "Distinct, readable roles.",
           consequence: "The confirmation is clearly the main action and every condition is readable.",
           signals: [
@@ -309,7 +309,7 @@ export const micCapstone: DecisionActivity = {
       choices: [
         {
           id: "decision-action-extras",
-          label: "Decision group, then “I’m ready to collect”, then the extension, then C11 and C12; only the image may hide",
+          label: "Key facts, then “I’m ready to collect”, then the extension, then the extras; only the image may hide",
           detail: "Decide, act, discover.",
           consequence: "Every required fact comes before the confirmation at 320px.",
           signals: [{ criterionId: "mic-c3-order", met: true, because: "The order stays meaningful in one column and only decorative content hides." }],
@@ -340,7 +340,7 @@ export const micCapstone: DecisionActivity = {
       choices: [
         {
           id: "resilient",
-          label: "Auto height, the location wraps, the action stays in normal flow, logical start alignment, a right-to-left heading, CK-731 isolated as a left-to-right run",
+          label: "The card grows with its text: the location wraps, the button stays in the flow, text aligns to its start, the Arabic heading runs right to left and CK-731 stays left to right",
           detail: "Content decides the shape.",
           consequence: "Every fact is complete at 320px in both versions, and the code reads CK-731.",
           signals: [{ criterionId: "mic-c4-preserve", met: true, because: "Long and right-to-left content keeps every fact and the identifier intact." }],
@@ -516,7 +516,7 @@ export const micReviewLoans: DecisionActivity = {
       choices: [
         {
           id: "facts-with-item",
-          label: "Each fact sits with the item it describes; spacing and containers reinforce that relationship",
+          label: "Each fact sits with the item it describes; spacing and boxes make that clear",
           detail: "Meaning first.",
           consequence: "You start the repair from what the facts mean.",
           signals: [{ criterionId: "mic-c2-association", met: true, because: "Grouping carries factual meaning, not just a visual style." }],
@@ -590,7 +590,7 @@ export const micReviewLoans: DecisionActivity = {
           detail: "Due date sets priority.",
           consequence: "The loan that needs action soonest is the first thing on the page.",
           signals: [{ criterionId: "mic-c1-prominence", met: true, because: "The nearer due date is the direct fit for this goal." }],
-          affects: [{ hotspot: "g1", tag: "1st" }],
+          affects: [{ hotspot: "g1", tag: "1st", place: 1 }],
           next: "v3",
         },
         {
@@ -608,7 +608,7 @@ export const micReviewLoans: DecisionActivity = {
           detail: "No change.",
           consequence: "The promotion displaces the decision without a reason.",
           signals: [{ criterionId: "mic-c1-prominence", met: false, because: "Promotion leads while the loan decision waits." }],
-          affects: [{ hotspot: "promo", tag: "1st" }],
+          affects: [{ hotspot: "promo", tag: "1st", place: 1 }],
           next: "v3",
         },
       ],
@@ -772,7 +772,7 @@ export const micReviewAppointment: DecisionActivity = {
       choices: [
         {
           id: "flow-isolate",
-          label: "The action in normal flow after the details; the label right-to-left with BIKE-908 kept as a left-to-right run",
+          label: "The button after the details, in the normal flow; the Arabic label right to left, BIKE-908 left to right",
           detail: "Flow and isolation.",
           consequence: "Nothing overlaps, and the reference reads BIKE-908 in both versions.",
           signals: [{ criterionId: "mic-c4-preserve", met: true, because: "The action can’t cover the address, and the identifier keeps its order." }],

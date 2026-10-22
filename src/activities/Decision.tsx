@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Check, Send } from "lucide-react";
 import { walkDecision } from "@/domain/assessment";
-import type { DecisionActivity, DecisionNode, Screen } from "@/domain/types";
+import { applyAffects, changesLayout } from "@/domain/preview";
+import type { Affect, DecisionActivity, DecisionNode, Screen } from "@/domain/types";
 import { playSfx } from "@/components/sfx";
 import { Button, Kbd, cn } from "@/components/ui";
 import { useI18n } from "@/i18n";
@@ -189,7 +191,7 @@ export function DecisionControls({
                 <span className="text-start text-[14.5px] font-semibold leading-snug text-fg">{c.label}</span>
                 <Kbd className={cn("hidden shrink-0 sm:inline", checked && "border-white/40 text-white")}>{i + 1}</Kbd>
               </span>
-              <span className={cn("font-mono text-[11.5px]", checked ? "text-accent-strong" : "text-muted")}>{c.detail}</span>
+              <span className={cn("text-[12.5px]", checked ? "text-accent-strong" : "text-muted")}>{c.detail}</span>
             </label>
           );
         })}
@@ -256,15 +258,41 @@ export function DecisionThread({ activity, choices }: { activity: DecisionActivi
   );
 }
 
-/** The product screen of a node with the parts touched by `choiceId` highlighted. Effect blocks (hotspot "fx-…") show only while highlighted. */
-function HighlightedScreen({ node, choiceId, own, className }: { node: DecisionNode; choiceId?: string; own: boolean; className?: string }) {
+/**
+ * The product screen of a node. With an option, the parts it touches carry numbered pins (listed beside the screen) and,
+ * in the "after" view, its layout changes are applied. Effect blocks (hotspot "fx-…") show only while highlighted.
+ */
+function HighlightedScreen({ node, choiceId, after, earlier, className }: { node: DecisionNode; choiceId?: string; after: boolean; earlier: Affect[]; className?: string }) {
   const screen = node.screen as Screen;
-  const choice = node.choices.find((c) => c.id === choiceId);
-  const active: Record<string, string> = Object.fromEntries((choice?.affects ?? []).map((a) => [a.hotspot, a.tag]));
-  const related = own ? [...new Set(node.choices.flatMap((c) => (c.affects ?? []).map((a) => a.hotspot)))] : [];
-  const highlight: HighlightMode = { active, related };
-  const shown: Screen = { ...screen, blocks: screen.blocks.filter((b) => !b.hotspot?.startsWith(EFFECT_PREFIX) || b.hotspot in active) };
-  return <ScreenRenderer screen={shown} highlight={highlight} className={className} />;
+  const affects = node.choices.find((c) => c.id === choiceId)?.affects ?? [];
+  const active: Record<string, string> = Object.fromEntries(affects.map((a) => [a.hotspot, a.tag]));
+  const pins: Record<string, number> = Object.fromEntries(affects.map((a, i) => [a.hotspot, i + 1]));
+  const lead = screen.blocks[0]?.type === "appbar" ? 1 : 0;
+  const apply = <B extends Screen["blocks"][number]>(blocks: B[], list: Affect[]) =>
+    applyAffects(blocks, list, lead).map((b) => (b.type === "list" ? { ...b, items: applyAffects(b.items, list) } : b)) as B[];
+  let blocks = screen.blocks.filter((b) => !b.hotspot?.startsWith(EFFECT_PREFIX) || b.hotspot in active);
+  // Earlier decisions stay applied, so the screen builds up as the learner decides.
+  blocks = apply(blocks, earlier);
+  // The option's own removals stay visible as faded parts in the "after" view, so the learner can see what went.
+  if (after && affects.length) blocks = apply(blocks, affects.map((a) => ({ ...a, hide: false })));
+  const removed = after ? affects.filter((a) => a.hide).map((a) => a.hotspot) : [];
+  const highlight: HighlightMode = { active, pins, removed };
+  return <ScreenRenderer screen={{ ...screen, blocks }} highlight={highlight} className={className} />;
+}
+
+/** The numbered list of what an option changes, matching the pins on the screen. */
+function ChangeList({ affects }: { affects: Affect[] }) {
+  const { tr } = useI18n();
+  return (
+    <ol className="flex flex-wrap gap-1.5" aria-label={tr("What this option changes")}>
+      {affects.map((a, i) => (
+        <li key={a.hotspot} className="inline-flex items-center gap-1.5 rounded-full border border-brand-strong/50 bg-brand-deep/60 py-0.5 pe-2.5 ps-0.5 text-xs font-medium text-fg">
+          <span aria-hidden className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-strong font-mono text-[10.5px] font-semibold text-white">{i + 1}</span>
+          {a.tag}
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 export function DecisionStage({ activity, choices, pending, reviewNodeId }: { activity: DecisionActivity; choices: Choices; pending?: string; reviewNodeId?: string }) {
@@ -278,16 +306,41 @@ export function DecisionStage({ activity, choices, pending, reviewNodeId }: { ac
   const own = screenNode?.id === nodeId;
   const decided = walk.steps.find((s) => s.nodeId === nodeId)?.choiceId;
   const choiceId = review || !walk.currentNodeId ? decided : pending;
-  const considering = !review && !!walk.currentNodeId && screenNode?.choices.some((c) => c.affects?.length);
+  const affects = own ? screenNode?.choices.find((c) => c.id === choiceId)?.affects ?? [] : [];
+  const stepIndex = walk.steps.findIndex((st) => st.nodeId === nodeId);
+  const earlier = walk.steps
+    .slice(0, stepIndex < 0 ? walk.steps.length : stepIndex)
+    .flatMap((st) => activity.nodes.find((n) => n.id === st.nodeId)?.choices.find((c) => c.id === st.choiceId)?.affects ?? []);
+  const canCompare = changesLayout(affects);
+  // Every new option opens on its result; "Before" holds only for the option it was chosen on.
+  const [beforeFor, setBeforeFor] = useState<string>();
+  const key = `${nodeId}:${choiceId}`;
+  const view = beforeFor === key ? "before" : "after";
+  const setView = (v: "before" | "after") => setBeforeFor(v === "before" ? key : undefined);
+  const hasPreview = own && screenNode?.choices.some((c) => c.affects?.length);
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-fg max-lg:hidden">{tr("Situation")}</h3>
-        {own && screenNode?.choices.some((c) => c.affects?.length) && (
-          <p className="font-mono text-xs text-subtle">{considering ? tr("Pick an option to see what it touches.") : tr("What your choice touched")}</p>
+      <div className="flex min-h-8 flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-fg max-lg:hidden">{choiceId && hasPreview ? tr("What this option changes") : tr("Situation")}</h3>
+        {canCompare && (
+          <div role="radiogroup" aria-label={tr("Compare")} className="flex rounded-lg border border-line bg-surface p-0.5 text-xs font-semibold">
+            {(["before", "after"] as const).map((v) => (
+              <button key={v} type="button" role="radio" aria-checked={view === v} onClick={() => setView(v)} className={cn("rounded-md px-2.5 py-1", view === v ? "bg-brand-strong text-white" : "text-muted hover:text-fg")}>
+                {v === "before" ? tr("Before") : tr("After")}
+              </button>
+            ))}
+          </div>
         )}
       </div>
-      {screenNode?.screen && <HighlightedScreen node={screenNode} choiceId={own ? choiceId : undefined} own={own} />}
+      {hasPreview &&
+        (!choiceId ? (
+          <p className="text-sm text-muted">{tr("Pick an option to see what it changes on the screen.")}</p>
+        ) : affects.length ? (
+          <ChangeList affects={affects} />
+        ) : (
+          <p className="text-sm text-muted">{tr("This option doesn’t change the screen.")}</p>
+        ))}
+      {screenNode?.screen && <HighlightedScreen node={screenNode} choiceId={own ? choiceId : undefined} after={view === "after"} earlier={earlier} />}
     </div>
   );
 }

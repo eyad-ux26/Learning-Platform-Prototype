@@ -36,11 +36,11 @@ const bubble = "max-w-[92%] rounded-2xl px-3 py-2.5 text-sm leading-relaxed";
  * The brief as a chat: every message is the client's, the main ask is highlighted, and the designer's reply
  * appears once the learner says they have read it. `children` continues the thread (decision steps).
  */
-export function ClientChat({ activity, read, children, className }: { activity: Activity; read: boolean; children?: ReactNode; className?: string }) {
+export function ClientChat({ activity, read, children, className, quiet }: { activity: Activity; read: boolean; children?: ReactNode; className?: string; quiet?: boolean }) {
   const { tr } = useI18n();
   const brief = briefOf(activity, tr("Client"));
   return (
-    <div className={cn("rounded-[22px] border-[1.5px] border-brand-strong bg-surface p-4", className)}>
+    <div className={cn("rounded-[22px] border-[1.5px] bg-surface p-4", quiet ? "border-line" : "border-brand-strong", className)}>
       <div className="flex items-center gap-2.5">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sk-amber text-sm font-bold text-[#2b1f00]" aria-hidden>{brief.from.trim()[0]}</span>
         <div className="min-w-0 leading-tight">

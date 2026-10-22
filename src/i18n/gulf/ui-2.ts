@@ -317,6 +317,10 @@ const gulf: Record<string, string> = {
   "Got it. I’ll make the decisions one at a time.": "تمام. باخذ القرارات وحدة وحدة.",
   "New brief": "طلب جديد",
   "I’ve read the brief": "قريت الطلب",
+  "What this option changes": "وش يغيّر هالخيار",
+  "Compare": "قارن",
+  "Pick an option to see what it changes on the screen.": "اختر خيار عشان تشوف وش يغيّر في الشاشة.",
+  "This option doesn’t change the screen.": "هالخيار ما يغيّر الشاشة.",
 };
 
 export default gulf;

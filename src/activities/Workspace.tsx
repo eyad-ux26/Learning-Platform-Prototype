@@ -233,7 +233,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   const brief = (
     <div className="space-y-4">
       <div ref={briefRef}>
-        <ClientChat activity={activity} read={briefRead}>
+        <ClientChat activity={activity} read={briefRead} quiet={briefRead}>
           {activity.template === "decision" && response.template === "decision" && <DecisionThread activity={activity} choices={response.choices} />}
         </ClientChat>
       </div>
@@ -277,7 +277,6 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
     </div>
   );
 
-  const sig = JSON.stringify(response).length;
   // < lg: one section at a time. lg: Brief alone, or response + interface side by side. xl: all three columns.
   const vis = (s: Section) => (section === s ? "block" : "hidden");
   const work = section !== "brief" ? "lg:block" : "";
@@ -439,7 +438,6 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
             <ColumnTag n={3}>{tr("Live")}</ColumnTag>
             {missingNotice && narrow && <div className="mb-3">{missingNotice}</div>}
             <div className="relative p-3 max-lg:px-0 max-lg:py-2">
-              <span key={sig} aria-hidden className="sel-snap pointer-events-none absolute inset-0 z-10 hidden rounded-[22px] outline outline-2 outline-offset-4 outline-brand-strong/70 lg:block" />
               {stage}
             </div>
           </div>
