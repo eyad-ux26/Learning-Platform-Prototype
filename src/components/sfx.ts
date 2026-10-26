@@ -1,5 +1,5 @@
 /** Tiny WebAudio cues. Off until the learner's `sound` preference allows it; never plays before a user gesture. */
-type Kind = "tap" | "pick" | "apply" | "undo" | "ship" | "reopen";
+type Kind = "tap" | "pick" | "apply" | "undo" | "ship" | "reopen" | "correct" | "miss" | "brick" | "badge";
 
 const SETS: Record<Kind, [number, number, number][]> = {
   tap: [[740, 0.04, 0]],
@@ -8,6 +8,14 @@ const SETS: Record<Kind, [number, number, number][]> = {
   undo: [[880, 0.05, 0], [587, 0.08, 0.05]],
   ship: [[523, 0.08, 0], [784, 0.08, 0.08], [1047, 0.08, 0.16], [1568, 0.2, 0.24]],
   reopen: [[440, 0.08, 0], [330, 0.14, 0.08]],
+  /** A step that holds up: a bright rising chime. */
+  correct: [[784, 0.07, 0], [988, 0.07, 0.07], [1319, 0.16, 0.14]],
+  /** A step that does not: two soft falling notes, never harsh. */
+  miss: [[392, 0.09, 0], [311, 0.16, 0.09]],
+  /** A brick lands in the build. */
+  brick: [[196, 0.06, 0], [262, 0.05, 0.03]],
+  /** A badge is earned: a short sparkle. */
+  badge: [[1047, 0.06, 0], [1319, 0.06, 0.06], [1568, 0.06, 0.12], [2093, 0.22, 0.18]],
 };
 
 let enabled = true;

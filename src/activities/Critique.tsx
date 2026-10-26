@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Check, Plus, Send, X } from "lucide-react";
 import type { CritiqueActivity, Evaluation, Verdict } from "@/domain/types";
-import { cn, Kbd } from "@/components/ui";
+import { Button, cn, Kbd } from "@/components/ui";
 import { playSfx } from "@/components/sfx";
 import { useI18n } from "@/i18n";
 import { DockLayout, useDock } from "./dock";
 import { ScreenRenderer, type HotspotMark } from "./ScreenRenderer";
+import type { Brick } from "./BuildBar";
+import { StepFeedback } from "./StepFeedback";
 
 export type CritiqueReviews = Record<string, { verdict?: Verdict; reason?: string; note?: string }>;
 type Reviews = CritiqueReviews;
@@ -36,17 +38,29 @@ const reasonHue = (id: string) => REASON_HUE[id] ?? "#7b6cff";
 
 const isDone = (r?: Reviews[string]) => !!(r?.verdict && r.reason);
 
-export function critiqueMarks(activity: CritiqueActivity, reviews: Reviews, evaluation?: Evaluation): Record<string, HotspotMark> {
+/** Verdict and reason both right. */
+export const judgedRight = (h: CritiqueActivity["hotspots"][number], r?: Reviews[string]) => !!(r?.verdict === h.verdict && r.reason && h.correctReasons.includes(r.reason));
+
+/** After the ship review every element shows its result; while working, only the checked ones do. */
+export function critiqueMarks(activity: CritiqueActivity, reviews: Reviews, evaluation?: Evaluation, checked: string[] = []): Record<string, HotspotMark> {
   const marks: Record<string, HotspotMark> = {};
   for (const h of activity.hotspots) {
     const r = reviews[h.id];
-    if (evaluation) marks[h.id] = r?.verdict === h.verdict && r.reason && h.correctReasons.includes(r.reason) ? "correct" : "incorrect";
+    if (evaluation || checked.includes(h.id)) marks[h.id] = judgedRight(h, r) ? "correct" : "incorrect";
     else marks[h.id] = r?.verdict ?? "unreviewed";
   }
   return marks;
 }
 
-export function CritiqueStage({ activity, reviews, selected, onSelect, evaluation }: { activity: CritiqueActivity; reviews: Reviews; selected?: string; onSelect: (id: string) => void; evaluation?: Evaluation }) {
+/** One brick per element: checked ones held or missed, the selected one current. */
+export function critiqueBricks(activity: CritiqueActivity, reviews: Reviews, selected: string | undefined, checked: string[], finished: boolean): Brick[] {
+  return activity.hotspots.map((h) => ({
+    label: h.label,
+    state: checked.includes(h.id) || finished ? (judgedRight(h, reviews[h.id]) ? "held" : "missed") : h.id === selected ? "current" : "todo",
+  }));
+}
+
+export function CritiqueStage({ activity, reviews, selected, onSelect, evaluation, checked = [] }: { activity: CritiqueActivity; reviews: Reviews; selected?: string; onSelect: (id: string) => void; evaluation?: Evaluation; checked?: string[] }) {
   const { tr } = useI18n();
   const numbers = Object.fromEntries(activity.hotspots.map((h, i) => [h.id, i + 1]));
   const labels = Object.fromEntries(activity.hotspots.map((h) => [h.id, h.label]));
@@ -56,18 +70,18 @@ export function CritiqueStage({ activity, reviews, selected, onSelect, evaluatio
         <h3 className="font-mono text-xs font-semibold text-accent">{tr("Interface under review")}</h3>
         <p className="text-xs text-subtle">{tr("Select a numbered element to review it.")}</p>
       </div>
-      <ScreenRenderer screen={activity.screen} mode={{ selected, onSelect, marks: critiqueMarks(activity, reviews, evaluation), numbers, labels }} />
+      <ScreenRenderer screen={activity.screen} mode={{ selected, onSelect, marks: critiqueMarks(activity, reviews, evaluation, checked), numbers, labels }} />
       <ul className="flex flex-wrap gap-x-4 gap-y-1.5 font-mono text-[11px] text-muted" aria-label={tr("Legend")}>
         <li className="flex items-center gap-1.5"><span aria-hidden className="inline-block h-2.5 w-3.5 rounded-[3px] border-[1.5px] border-dashed border-[#8b84d9]" />{tr("Not reviewed")}</li>
         <li className="flex items-center gap-1.5">
           <span aria-hidden className="inline-block h-2.5 w-3.5 rounded-[3px] border-[1.5px] border-solid border-[#2fb37f]" />
           <Check size={11} aria-hidden className="text-ok" />
-          {evaluation ? tr("Judged correctly") : tr("Acceptable")}
+          {evaluation || checked.length ? tr("Judged correctly") : tr("Acceptable")}
         </li>
         <li className="flex items-center gap-1.5">
           <span aria-hidden className="inline-block h-2.5 w-3.5 rounded-[3px] border-[1.5px] border-solid border-[#e5603f]" />
           <X size={11} aria-hidden className="text-bad" />
-          {evaluation ? tr("Judged incorrectly") : tr("Problematic")}
+          {evaluation || checked.length ? tr("Judged incorrectly") : tr("Problematic")}
         </li>
       </ul>
     </div>
@@ -130,6 +144,8 @@ export function CritiqueControls({
   onSelect,
   onReview,
   readOnly,
+  checked = [],
+  onCheck,
 }: {
   activity: CritiqueActivity;
   reviews: Reviews;
@@ -137,21 +153,24 @@ export function CritiqueControls({
   onSelect: (id: string) => void;
   onReview: (id: string, patch: Reviews[string]) => void;
   readOnly?: boolean;
+  /** Elements whose judgement has been checked. A checked judgement is final and shows its feedback. */
+  checked?: string[];
+  onCheck?: (id: string) => void;
 }) {
   const { tr } = useI18n();
   const dock = useDock();
   const hotspots = activity.hotspots;
   const total = hotspots.length;
-  const reviewed = hotspots.filter((h) => isDone(reviews[h.id])).length;
   const hotspot = hotspots.find((h) => h.id === selected);
   const idx = hotspot ? hotspots.indexOf(hotspot) : -1;
   const r = hotspot ? (reviews[hotspot.id] ?? {}) : {};
   const reasons = activity.reasons.filter((x) => x.appliesTo === r.verdict);
 
-  // Whenever nothing is selected (first visit, after a reset) start on the first element that still needs a verdict and a reason.
+  const isChecked = (id: string) => checked.includes(id);
+  // Whenever nothing is selected (first visit, after a reset) start on the first element still to check.
   useEffect(() => {
     if (selected || readOnly) return;
-    const first = hotspots.find((h) => !isDone(reviews[h.id])) ?? hotspots[0];
+    const first = hotspots.find((h) => !checked.includes(h.id)) ?? hotspots[0];
     if (first) onSelect(first.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, readOnly]);
@@ -160,7 +179,7 @@ export function CritiqueControls({
   if (hotspot) {
     for (let k = 1; k < total; k++) {
       const h = hotspots[(idx + k) % total];
-      if (!isDone(reviews[h.id])) {
+      if (!isChecked(h.id)) {
         nextId = h.id;
         break;
       }
@@ -169,6 +188,7 @@ export function CritiqueControls({
 
   const chipMark = (i: number) => {
     const v = reviews[hotspots[i].id]?.verdict;
+    if (isChecked(hotspots[i].id)) return judgedRight(hotspots[i], reviews[hotspots[i].id]) ? tr("judged right") : tr("judged wrong");
     return v === "acceptable" ? tr("marked acceptable") : v === "problematic" ? tr("marked problematic") : tr("not reviewed");
   };
 
@@ -177,21 +197,28 @@ export function CritiqueControls({
     { id: "problematic" as const, label: tr("Problematic"), sub: tr("Needs a change"), Icon: X, hue: "#ff7d5c", on: "border-[#ff7d5c] bg-bad-bg" },
   ];
 
+  const locked = !!(hotspot && isChecked(hotspot.id));
   const setVerdict = (v: Verdict) => {
-    if (!hotspot || readOnly) return;
+    if (!hotspot || readOnly || locked) return;
     playSfx("pick");
     onReview(hotspot.id, { ...r, verdict: v, reason: r.verdict === v ? r.reason : undefined });
   };
   const setReason = (id: string) => {
-    if (!hotspot || readOnly) return;
+    if (!hotspot || readOnly || locked) return;
     playSfx("pick");
     onReview(hotspot.id, { ...r, reason: id });
     // Phones: with verdict and reason in, give the screen back so the mark is visible.
     dock.setCollapsed(true);
   };
 
-  const allDone = reviewed === total;
+  const allChecked = hotspots.every((h) => isChecked(h.id));
   const currentDone = !!(hotspot && isDone(r));
+  const check = () => {
+    if (!hotspot || !currentDone || locked) return;
+    playSfx(judgedRight(hotspot, r) ? "correct" : "miss");
+    onCheck?.(hotspot.id);
+    dock.setCollapsed(false);
+  };
   const verdictLabel = r.verdict === "acceptable" ? tr("Acceptable") : r.verdict === "problematic" ? tr("Problematic") : undefined;
   const reasonLabel = reasons.find((x) => x.id === r.reason)?.label;
 
@@ -200,8 +227,8 @@ export function CritiqueControls({
       {hotspots.map((h, i) => {
         const rv = reviews[h.id];
         const cur = h.id === selected;
-        const done = isDone(rv);
-        const ok = rv?.verdict === "acceptable";
+        const done = isChecked(h.id);
+        const ok = judgedRight(h, rv);
         return (
           <li key={h.id} className="shrink-0">
             <button
@@ -231,27 +258,48 @@ export function CritiqueControls({
         );
       })}
       <li className="ms-auto shrink-0 ps-1 font-mono text-[11px] text-muted max-lg:hidden" aria-live="polite">
-        {tr("{n} of {m}", { n: reviewed, m: total })}
+        {tr("{n} of {m}", { n: checked.length, m: total })}
       </li>
     </ol>
   );
 
+  const right = !!(hotspot && judgedRight(hotspot, r));
   const summary = hotspot ? (
     <button type="button" onClick={() => dock.setCollapsed(false)} className="flex w-full items-center gap-3 rounded-2xl border border-line bg-raised px-3 py-2.5 text-start">
-      <span className="shrink-0 font-mono text-[11px] font-semibold text-accent">{idx + 1}/{total}</span>
+      <span className={cn("shrink-0 font-mono text-[11px] font-semibold", locked ? (right ? "text-ok" : "text-bad") : "text-accent")}>{locked ? (right ? tr("Judged right") : tr("Not quite")) : `${idx + 1}/${total}`}</span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold text-fg">{hotspot.label}</span>
         {verdictLabel && <span className="block truncate text-xs text-muted">{verdictLabel}{reasonLabel ? ` · ${reasonLabel}` : ""}</span>}
       </span>
-      <span className="shrink-0 text-xs font-semibold text-accent">{tr("Change")}</span>
+      {!locked && <span className="shrink-0 text-xs font-semibold text-accent">{tr("Change")}</span>}
     </button>
   ) : undefined;
 
-  const body = hotspot ? (
+  const expectedReason = hotspot ? activity.reasons.find((x) => hotspot.correctReasons.includes(x.id))?.label : undefined;
+  const feedback = hotspot && locked && (
+    <div key={`fb-${hotspot.id}`} className="rounded-[22px] border-[1.5px] border-line bg-surface p-4 @sm:p-5 max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:p-0" role="region" aria-label={tr("Review element {n}", { n: idx + 1 })}>
+      <p className="mb-2.5 truncate font-mono text-xs font-semibold text-accent">{tr("Element {n} of {m}", { n: idx + 1, m: total })} · {hotspot.label}</p>
+      <StepFeedback
+        verdict={right ? "held" : "missed"}
+        title={right ? tr("Judged right") : tr("Not quite")}
+        subtitle={[verdictLabel, reasonLabel].filter(Boolean).join(" · ")}
+        better={right ? undefined : [hotspot.verdict === "acceptable" ? tr("Acceptable") : tr("Problematic"), expectedReason].filter(Boolean).join(" · ")}
+        betterLabel={tr("Right call:")}
+        example={hotspot.explanation}
+        exampleLabel={tr("On this screen")}
+        why={hotspot.improvement}
+        whyLabel={tr("Better version")}
+      />
+      {r.note && <p className="mt-2 truncate text-xs text-subtle">{tr("Your note (stored, not assessed): “{note}”", { note: r.note })}</p>}
+    </div>
+  );
+
+  const body = feedback ? (
+    feedback
+  ) : hotspot ? (
     <div className="rounded-[22px] border-[1.5px] border-brand-strong bg-surface p-4 @sm:p-5 max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:p-0" role="region" aria-label={tr("Review element {n}", { n: idx + 1 })}>
       <div className="font-mono text-xs font-semibold text-accent">{tr("Element {n} of {m}", { n: idx + 1, m: total })}</div>
       <h3 className="mt-1 font-display text-xl font-extrabold leading-[1.1] tracking-tight text-fg lg:mt-1.5 lg:text-2xl">{hotspot.label}</h3>
-
       <fieldset disabled={readOnly} onKeyDown={numberKeys((i) => verdictOptions[i] && setVerdict(verdictOptions[i].id))} className="mt-3 min-w-0 lg:mt-4">
         <legend className="sr-only">{tr("Your judgement")}</legend>
         <div className="grid grid-cols-2 gap-2.5">
@@ -312,21 +360,8 @@ export function CritiqueControls({
       )}
 
       {r.verdict && r.reason && (
-        <div className="mt-4 animate-rise space-y-3.5 border-t border-line pt-4">
+        <div className="mt-4 animate-rise border-t border-line pt-4">
           <NoteField key={hotspot.id} id={hotspot.id} note={r.note} readOnly={readOnly} onChange={(note) => onReview(hotspot.id, { ...r, note })} />
-          {nextId && (
-            <button
-              type="button"
-              onClick={() => {
-                playSfx("tap");
-                onSelect(nextId);
-              }}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-brand text-[15px] font-bold text-white transition-[transform,background-color] hover:bg-brand-strong active:translate-y-px max-lg:hidden"
-            >
-              {tr("Next element")}
-              <span aria-hidden><Kbd className="border-transparent bg-black/20 text-white">↵</Kbd></span>
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -334,21 +369,25 @@ export function CritiqueControls({
     <p className="rounded-xl border border-dashed border-line-strong p-4 text-sm text-muted">{tr("Select an element in the list or on the interface to review it.")}</p>
   );
 
-  // Phones: the one primary action, always in reach.
-  const foot = readOnly || !hotspot ? undefined : (
-    <button
-      type="button"
-      disabled={!currentDone || (!nextId && !allDone)}
+  // The one primary action, always in reach: Check, then Next element (or See results after the last one).
+  const foot = readOnly || !hotspot ? undefined : !locked ? (
+    <Button variant="primary" size="lg" className={cn("w-full max-lg:h-11", currentDone && "nudge")} disabled={!currentDone} onClick={check}>
+      <Check size={16} aria-hidden /> {tr("Check answer")}
+    </Button>
+  ) : (
+    <Button
+      variant="primary"
+      size="lg"
+      className="nudge w-full max-lg:h-11"
       onClick={() => {
         playSfx("tap");
         if (nextId) onSelect(nextId);
-        else dock.submit?.();
+        else if (allChecked) dock.submit?.();
       }}
-      className={cn("flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors lg:hidden", currentDone ? "bg-brand-strong text-white" : "bg-line text-subtle")}
     >
-      {nextId || !currentDone ? <>{tr("Next element")} <ArrowRight size={15} aria-hidden /></> : <><Send size={15} aria-hidden /> {tr("Submit response")}</>}
-    </button>
+      {nextId ? <>{tr("Next element")} <ArrowRight size={15} aria-hidden /></> : <><Send size={15} aria-hidden /> {tr("See results")}</>}
+    </Button>
   );
 
-  return <DockLayout className="@container" head={head} summary={summary} body={body} foot={foot} />;
+  return <DockLayout className="@container" bodyKey={`${hotspot?.id}-${locked}`} head={head} summary={summary} body={body} foot={foot} />;
 }

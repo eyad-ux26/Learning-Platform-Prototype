@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, BookOpen, CheckCircle2, CircleAlert, Copy, Eye, Lock, RotateCcw } from "lucide-react";
+import { useEffect } from "react";
+import { ArrowRight, Award, BookOpen, CheckCircle2, ChevronDown, CircleAlert, Copy, Eye, ListChecks, Lock, RotateCcw, Trophy } from "lucide-react";
 import { recommendNext } from "@/domain/recommend";
 import type { Activity, Attempt, Evaluation, Verdict } from "@/domain/types";
 import { walkDecision } from "@/domain/assessment";
@@ -9,8 +9,14 @@ import { CritiqueReview } from "./CritiqueReview";
 import { DecisionReview } from "./DecisionReview";
 import { SkillStatusBadge } from "@/components/SkillStatus";
 import { SkillRing } from "@/components/SkillRing";
-import { Badge, Button, LinkButton, Notice, cn } from "@/components/ui";
-import type { PathView } from "@/state/AppState";
+import { Button, LinkButton, Notice, cn } from "@/components/ui";
+import { BadgeMedal } from "@/components/BadgeMedal";
+import { Confetti } from "@/components/Celebrate";
+import { playSfx } from "@/components/sfx";
+import { attemptRep } from "@/domain/progression";
+import { useApp, type PathView } from "@/state/AppState";
+import { useBadges } from "@/learner/useBadges";
+import { BuildBar, type Brick } from "./BuildBar";
 import { useI18n } from "@/i18n";
 
 export function FeedbackPanel({
@@ -22,6 +28,7 @@ export function FeedbackPanel({
   onRetry,
   critique,
   decision,
+  bricks,
 }: {
   view: PathView;
   activity: Activity;
@@ -33,8 +40,12 @@ export function FeedbackPanel({
   critique?: { reviews: Record<string, { verdict?: Verdict; reason?: string; note?: string }>; selected?: string; onSelect: (id: string) => void };
   /** Decision ship review: the learner's route and the decision open in the review (shared with the live preview). */
   decision?: { choices: { nodeId: string; choiceId: string }[]; selectedNodeId?: string; onSelectNode: (id: string) => void };
+  /** The finished build, one brick per step. */
+  bricks?: Brick[];
 }) {
   const { tr, L } = useI18n();
+  const { learner } = useApp();
+  const badges = useBadges();
   const { bundle } = view;
   // The evaluation may be English (fresh or stored); localise for display only.
   const evaluation = L(storedEvaluation);
@@ -51,65 +62,104 @@ export function FeedbackPanel({
   const conceptFor = (skillId: string) => bundle.explore.find((c) => c.skillId === skillId);
   const unmetSkills = evaluation.skills.filter((s) => !s.met).map((s) => s.skillId);
   const allMet = evaluation.skills.every((s) => s.met);
-  // Headline numbers for the review hero, per activity type.
+  // Headline numbers for the result, per activity type.
   const stat = (() => {
     if (activity.template === "critique" && critique) {
       const right = activity.hotspots.filter((h) => {
         const r = critique.reviews[h.id];
         return r?.verdict === h.verdict && !!r.reason && h.correctReasons.includes(r.reason);
       }).length;
-      return { label: tr("JUDGED RIGHT"), value: right, max: activity.hotspots.length, note: tr("Verdict and reason") };
+      return { label: tr("JUDGED RIGHT"), headline: tr("{n} of {m} judged right", { n: right, m: activity.hotspots.length }) };
     }
     if (activity.template === "decision" && decision) {
       const steps = walkDecision(activity, { choices: decision.choices }).steps;
       const held = steps.filter((st) => activity.nodes.find((n) => n.id === st.nodeId)?.choices.find((c) => c.id === st.choiceId)?.signals.every((g) => g.met)).length;
-      return { label: tr("HELD UP"), value: held, max: steps.length, note: tr("Every criterion met") };
+      return { label: tr("HELD UP"), headline: tr("{n} of {m} held up", { n: held, m: steps.length }) };
     }
-    return { label: tr("CRITERIA MET"), value: met.length, max: evaluation.criteria.length, note: tr("Across the assessed skills") };
+    return { label: tr("CRITERIA MET"), headline: tr("{n} of {m} criteria met", { n: met.length, m: evaluation.criteria.length }) };
   })();
   const pathStat = mode === "learner" && bundle.meta.availability === "full" ? { value: view.completion.mastered.length, max: bundle.requiredSkillIds.length } : undefined;
-  /** Authored criterion feedback only. No generated or invented client dialogue. */
-  const reviewNote = (unmet[0] ?? met[0])?.feedback;
+  const rep = mode === "learner" && attempt ? attemptRep(attempt, learner.evidence) : 0;
+  const newBadges = attempt ? badges.filter((b) => b.attemptId === attempt.id) : [];
+  // Tickets carry the detail for decisions and critiques; the criterion list is the detail for Design Bench.
+  const ticketed = (activity.template === "critique" && !!critique) || (activity.template === "decision" && !!decision);
+
+  useEffect(() => {
+    if (!newBadges.length) return;
+    const id = window.setTimeout(() => playSfx("badge"), 900);
+    return () => window.clearTimeout(id);
+    // Only when the result first shows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt?.id]);
+
+  const criteria = (
+    <>
+      {met.length > 0 && (
+        <section aria-labelledby="fb-worked" className="space-y-2">
+          <h3 id="fb-worked" className="font-mono text-xs font-semibold text-ok">{tr("What worked")}</h3>
+          {met.map((c) => (
+            <CriterionCard key={c.criterionId} title={criterion(c.criterionId)?.statement ?? c.criterionId} skill={skillName(c.skillId)} result={c} tone="ok" />
+          ))}
+        </section>
+      )}
+      {unmet.length > 0 && (
+        <section aria-labelledby="fb-improve" className="space-y-2">
+          <h3 id="fb-improve" className="font-mono text-xs font-semibold text-bad">{tr("What needs improvement")}</h3>
+          {unmet.map((c) => (
+            <CriterionCard key={c.criterionId} title={criterion(c.criterionId)?.statement ?? c.criterionId} skill={skillName(c.skillId)} result={c} tone="warn" />
+          ))}
+        </section>
+      )}
+    </>
+  );
 
   return (
-    <div className="space-y-6 animate-rise" aria-labelledby="feedback-heading">
-      <div className="flex flex-wrap items-center gap-6 rounded-[22px] bg-brand p-5 text-white">
-        <div className="min-w-0 flex-1 basis-72">
-        <span className={cn("animate-stamp inline-flex items-center gap-2 rounded-lg border-[2.5px] border-white px-3 py-1 font-mono text-sm font-semibold tracking-[0.12em]")}>
-          {allMet ? <CheckCircle2 size={16} aria-hidden /> : <RotateCcw size={16} aria-hidden />}
-          {allMet ? tr("SHIPPED") : tr("REOPENED")}
-        </span>
+    <div className="space-y-5 animate-rise" aria-labelledby="feedback-heading">
+      {/* Result: verdict, the finished build, and what it earned */}
+      <section className="relative rounded-[22px] bg-brand p-5 text-white">
+        {allMet && <Confetti count={26} spread={170} className="[&>span]:top-10" />}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="animate-stamp inline-flex items-center gap-2 rounded-lg border-[2.5px] border-white px-3 py-1 font-mono text-sm font-semibold tracking-[0.12em]">
+            {allMet ? <CheckCircle2 size={16} aria-hidden /> : <RotateCcw size={16} aria-hidden />}
+            {allMet ? tr("SHIPPED") : tr("REOPENED")}
+          </span>
+          <span className="font-mono text-[11px] font-semibold text-[#d4cfff]">{stat.label}</span>
+        </div>
         <h2 id="feedback-heading" tabIndex={-1} className="mt-3 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
-          {tr("{n} of {m} criteria met", { n: met.length, m: evaluation.criteria.length })}
+          {stat.headline}
         </h2>
-        <p className="mt-1 text-sm text-[#e4e0ff]">
-          {evaluation.skills.length === 1 ? tr("Across 1 skill.") : tr("Across {n} skills.", { n: evaluation.skills.length })} {allMet ? tr("Nothing to reopen.") : tr("The skills below come back in a different context.")}
-        </p>
-        {reviewNote && (
-          <div className="mt-4 flex max-w-xl items-end gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sk-amber text-xs font-bold text-[#2b1f00]" aria-hidden>{activity.contextLabel.trim()[0]}</span>
-            <div className="rounded-2xl rounded-es-sm bg-white p-3 text-sm leading-snug text-[#17152e]">
-              <p className="font-mono text-[11px] text-[#5a5680]">{activity.contextLabel} · {allMet ? tr("review note") : tr("look at this")}</p>
-              {reviewNote}
-            </div>
+        {bricks && bricks.length > 0 && (
+          <div className="mt-3 rounded-xl bg-black/25 px-3 py-2.5">
+            <BuildBar bricks={bricks} />
           </div>
         )}
-        </div>
-        <div className="flex gap-3">
-          <div className="w-36 rounded-[22px] bg-white p-4 text-[#17152e]">
-            <p className="font-mono text-[11px] font-semibold text-[#5a5680]">{stat.label}</p>
-            <p className="mt-1 font-display text-4xl font-extrabold">{stat.value}<span className="text-[#9a96b8]">/{stat.max}</span></p>
-            <p className="text-xs text-[#5a5680]">{stat.note}</p>
-          </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {rep > 0 && (
+            <span className="animate-pop inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 font-mono text-sm font-semibold text-[#5a3f00]" title={tr("Rep: prototype scoring from your own attempts")}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#e0a400" aria-hidden><path d="M12 2l10 10-10 10L2 12z" /></svg>
+              {tr("+{n} Rep", { n: rep })}
+            </span>
+          )}
           {pathStat && (
-            <div className="w-36 rounded-[22px] bg-white p-4 text-[#17152e]">
-              <p className="font-mono text-[11px] font-semibold text-[#5a5680]">{tr("SKILLS MASTERED")}</p>
-              <p className="mt-1 font-display text-4xl font-extrabold">{pathStat.value}<span className="text-[#9a96b8]">/{pathStat.max}</span></p>
-              <p className="text-xs text-[#5a5680]">{tr("Path completes at {n}/{n}", { n: pathStat.max })}</p>
-            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 font-mono text-sm font-semibold">
+              <Trophy size={14} aria-hidden className="text-sk-amber" />
+              {tr("{n}/{m} skills mastered", { n: pathStat.value, m: pathStat.max })}
+            </span>
           )}
         </div>
-      </div>
+        {newBadges.length > 0 && (
+          <div className="mt-4 rounded-2xl bg-white/10 p-3">
+            <p className="font-mono text-[11px] font-semibold text-[#e4e0ff]">{newBadges.length === 1 ? tr("New badge") : tr("New badges")}</p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {newBadges.map((b, i) => (
+                <li key={`${b.id}-${b.pathId ?? ""}`} style={{ animationDelay: `${600 + i * 150}ms` }} className="animate-pop">
+                  <BadgeMedal id={b.id} earned size={52} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
 
       {mode === "preview" && <Notice tone="accent" title={tr("Preview mode")}>{tr("This evaluation uses the real assessment rules, but no evidence is recorded.")}</Notice>}
       {attempt?.duplicateOf && (
@@ -128,27 +178,23 @@ export function FeedbackPanel({
         </Notice>
       )}
 
-      {/* Per-skill result */}
-      <section aria-label={tr("Results by skill")} className="space-y-2">
+      {/* Per-skill result: ring, name, status */}
+      <section aria-label={tr("Results by skill")} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {evaluation.skills.map((s) => {
           const p = view.progress[s.skillId];
           const idx = Math.max(0, bundle.skills.findIndex((x) => x.id === s.skillId));
           return (
-            <div key={s.skillId} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
-              {mode === "learner" && p && <SkillRing index={idx} progress={p} size={56} animateNew={s.met} />}
+            <div key={s.skillId} className="flex min-w-0 items-center gap-3 rounded-2xl border border-line bg-surface p-2.5">
+              {mode === "learner" && p ? <SkillRing index={idx} progress={p} size={42} animateNew={s.met} /> : null}
               <div className="min-w-0 flex-1">
-              <p className="font-display text-lg font-extrabold tracking-tight text-fg">{skillName(s.skillId)}</p>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
-                <span className={cn("inline-flex items-center gap-1.5 text-sm", s.met ? "text-ok" : "text-warn")}>
-                  {s.met ? <CheckCircle2 size={15} aria-hidden /> : <CircleAlert size={15} aria-hidden />}
-                  {s.met ? tr("Criteria met in this attempt") : tr("Not met yet")}
-                </span>
-                {mode === "learner" && p && (
-                  <span className="ms-auto flex items-center gap-2">
-                    <SkillStatusBadge status={p.status} />
+                <p className="truncate text-sm font-semibold text-fg">{skillName(s.skillId)}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className={cn("inline-flex items-center gap-1 text-xs font-semibold", s.met ? "text-ok" : "text-warn")}>
+                    {s.met ? <CheckCircle2 size={13} aria-hidden /> : <CircleAlert size={13} aria-hidden />}
+                    {s.met ? tr("Met") : tr("Not yet")}
                   </span>
-                )}
-              </div>
+                  {mode === "learner" && p && <SkillStatusBadge status={p.status} />}
+                </div>
               </div>
             </div>
           );
@@ -156,57 +202,56 @@ export function FeedbackPanel({
       </section>
 
       {critique && activity.template === "critique" && (
-        <section aria-labelledby="fb-elements" className="space-y-3">
+        <section aria-labelledby="fb-elements" className="space-y-2.5">
           <h3 id="fb-elements" className="font-mono text-xs font-semibold text-accent">{tr("Element by element · tap to open")}</h3>
           <CritiqueReview activity={activity} reviews={critique.reviews} evaluation={evaluation} selected={critique.selected} onSelect={critique.onSelect} />
         </section>
       )}
       {decision && activity.template === "decision" && (
-        <section aria-labelledby="fb-route" className="space-y-3">
+        <section aria-labelledby="fb-route" className="space-y-2.5">
           <h3 id="fb-route" className="font-mono text-xs font-semibold text-accent">{tr("Your route · tap a decision")}</h3>
           <DecisionReview activity={activity} choices={decision.choices} evaluation={evaluation} selectedNodeId={decision.selectedNodeId} onSelectNode={decision.onSelectNode} />
         </section>
       )}
 
-      {met.length > 0 && (
-        <section aria-labelledby="fb-worked" className="space-y-3">
-          <h3 id="fb-worked" className="font-mono text-xs font-semibold text-ok">{tr("What worked")}</h3>
-          {met.map((c) => (
-            <CriterionCard key={c.criterionId} title={criterion(c.criterionId)?.statement ?? c.criterionId} skill={skillName(c.skillId)} result={c} tone="ok" />
-          ))}
-        </section>
-      )}
-
-      {unmet.length > 0 && (
-        <section aria-labelledby="fb-improve" className="space-y-3">
-          <h3 id="fb-improve" className="font-mono text-xs font-semibold text-bad">{tr("What needs improvement")}</h3>
-          {unmet.map((c, i) => (
-            <CriterionCard key={c.criterionId} title={criterion(c.criterionId)?.statement ?? c.criterionId} skill={skillName(c.skillId)} result={c} tone="warn" defaultOpen={i === 0 && !critique && !decision} />
-          ))}
-        </section>
+      {ticketed ? (
+        <details className="group rounded-2xl border border-line bg-surface">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-fg">
+            <ListChecks size={16} aria-hidden className="text-accent" /> {tr("Criteria ({n} of {m} met)", { n: met.length, m: evaluation.criteria.length })}
+            <ChevronDown size={15} aria-hidden className="ms-auto text-subtle transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="space-y-4 px-3 pb-3">{criteria}</div>
+        </details>
+      ) : (
+        criteria
       )}
 
       {activity.template === "decision" && (
-        <section aria-labelledby="fb-debrief" className="space-y-2 rounded-xl border border-line bg-surface p-4">
-          <h3 id="fb-debrief" className="text-sm font-semibold text-fg">{tr("How impact, reversibility and uncertainty shape the right interaction")}</h3>
-          <dl className="space-y-2 text-sm">
+        <details className="group rounded-2xl border border-line bg-surface">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-fg">
+            <BookOpen size={16} aria-hidden className="text-accent" /> {tr("Learn more: impact, reversibility, uncertainty")}
+            <ChevronDown size={15} aria-hidden className="ms-auto text-subtle transition-transform group-open:rotate-180" />
+          </summary>
+          <dl className="space-y-2 px-4 pb-4 text-sm">
             <div><dt className="font-medium text-fg">{tr("Impact")}</dt><dd className="text-muted">{activity.debrief.impact}</dd></div>
             <div><dt className="font-medium text-fg">{tr("Reversibility")}</dt><dd className="text-muted">{activity.debrief.reversibility}</dd></div>
             <div><dt className="font-medium text-fg">{tr("Uncertainty")}</dt><dd className="text-muted">{activity.debrief.uncertainty}</dd></div>
           </dl>
-        </section>
+        </details>
       )}
 
       {/* Next action */}
       <section aria-labelledby="fb-next" className={cn("space-y-3 rounded-[22px] border p-5", allMet ? "border-ok/30 bg-ok-bg" : "border-sk-coral/40 bg-bad-bg")}>
-        <h3 id="fb-next" className="font-display text-xl font-extrabold tracking-tight text-fg">{tr("Recommended next")}</h3>
+        <h3 id="fb-next" className="flex items-center gap-2 font-display text-xl font-extrabold tracking-tight text-fg">
+          <ArrowRight size={18} aria-hidden className="text-accent" /> {tr("Recommended next")}
+        </h3>
         {rec?.type === "activity" && (() => {
           const next = bundle.activities.find((a) => a.id === rec.activityId)!;
           return (
             <div className="space-y-3">
               <div>
                 <p className="font-medium text-fg">{next.title}</p>
-                <p className="mt-0.5 text-sm text-muted">{L(rec.reason)}</p>
+                <p className="mt-0.5 line-clamp-2 text-sm text-muted">{L(rec.reason)}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <LinkButton href={`/paths/${pathId}/practice/${next.id}`} variant="primary">
@@ -241,8 +286,11 @@ export function FeedbackPanel({
         )}
         {rec?.type === "complete" && (
           <div className="space-y-3">
-            <p className="text-sm text-fg">{tr("Every required skill is Mastered. The path is complete.")}</p>
-            <LinkButton href={`/paths/${pathId}/skills`} variant="primary">{tr("See your evidence")}</LinkButton>
+            <p className="flex items-center gap-2 text-sm font-semibold text-fg"><Trophy size={16} className="text-sk-amber" aria-hidden /> {tr("Every required skill is Mastered. The path is complete.")}</p>
+            <div className="flex flex-wrap gap-2">
+              <LinkButton href={`/paths/${pathId}/certificate`} variant="primary"><Award size={15} aria-hidden /> {tr("Get your certificate")}</LinkButton>
+              <LinkButton href={`/paths/${pathId}/skills`} variant="secondary">{tr("See your evidence")}</LinkButton>
+            </div>
           </div>
         )}
         {!rec && (
@@ -252,7 +300,7 @@ export function FeedbackPanel({
         )}
         <div className="flex flex-wrap gap-2 border-t border-line pt-3">
           <Button variant="ghost" size="sm" onClick={onRetry}>
-            <RotateCcw size={14} aria-hidden /> {tr("Revise and resubmit")}
+            <RotateCcw size={14} aria-hidden /> {activity.template === "design-bench" ? tr("Revise and resubmit") : tr("Try again")}
           </Button>
           {mode === "learner" && (
             <LinkButton href={`/paths/${pathId}/skills`} variant="ghost" size="sm">

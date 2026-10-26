@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BookOpen, Check, ChevronLeft, CheckCircle2, Circle, CircleHelp, Clock, Gift, Inbox, Info, Lock, Play, RotateCcw, Search, ShieldCheck, Trophy, Undo2, type LucideIcon } from "lucide-react";
+import { Award, BookOpen, Check, ChevronLeft, ChevronRight, CheckCircle2, Circle, CircleHelp, Clock, Columns3, Gift, Inbox, Info, Lock, Map as MapIcon, Play, RotateCcw, Search, ShieldCheck, Trophy, Undo2, type LucideIcon } from "lucide-react";
 import { skillsAssessedBy } from "@/domain/assessment";
 import { recommendNext } from "@/domain/recommend";
 import type { Activity, LearnerRecord } from "@/domain/types";
@@ -15,6 +15,8 @@ import { SkillGlyph, SkillRing, skillHue } from "@/components/SkillRing";
 import { Badge, Frame, Kbd, LinkButton, Notice, cn } from "@/components/ui";
 import { useApp, type PathView } from "@/state/AppState";
 import { AccessBadge } from "./PathCard";
+import { PathMap } from "./PathMap";
+import { nextStep } from "./whereAmI";
 
 const COLUMNS = [
   { id: "inbox", label: "Inbox", hue: "#a3a2b3", Icon: Inbox },
@@ -78,6 +80,7 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
 
 
   const [selId, setSelId] = useState<string>();
+  const [layout, setLayout] = useState<"map" | "board">("map");
   const defaultSel = draftActivity ?? recActivity ?? firstSample ?? bundle.activities[0];
   const selected = bundle.activities.find((a) => a.id === selId) ?? defaultSel;
   const selColumn = selected ? columnOf(selected) : "inbox";
@@ -121,7 +124,7 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
               {view.enrolledVersion && view.enrolledVersion < view.latestVersion && !preview && <Badge tone="ai">{tr("Your enrollment: version {n}", { n: view.enrolledVersion })}</Badge>}
             </div>
             <h1 id="path-title" className="mb-3.5 text-[34px] font-extrabold leading-none tracking-[-0.03em] sm:text-[44px]">{meta.title}</h1>
-            <p className="mb-3 max-w-xl text-sm leading-relaxed text-[#e4e0ff]">{meta.summary}</p>
+            <p className="mb-3 max-w-xl text-sm leading-relaxed text-[#e4e0ff] max-sm:line-clamp-2">{meta.summary}</p>
             {!isPreviewPath && (
               <div className="flex items-center gap-2.5 font-semibold">
                 <Trophy size={20} className="shrink-0 text-sk-amber" aria-hidden />
@@ -149,16 +152,10 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
                 )}
               </div>
             )}
-            {!isPreviewPath && !preview && <p className="mt-3 max-w-xl text-xs text-[#dcd8ff]">{tr("You don’t need to finish Explore before practising. If you already know the topic, go straight to practice.")}</p>}
-            {!isPreviewPath && (
-              <p className="mt-3 max-w-xl text-xs text-[#dcd8ff]">
-                {tr(t.rule.short)} {!view.completion.complete && tr("Lessons viewed and activities attempted don’t complete a path on their own.")}{" "}
-                {!preview && (
-                  <Link href={`${base}/skills`} className="font-semibold text-white underline underline-offset-2 hover:text-white">
-                    {tr("See evidence by skill")}
-                  </Link>
-                )}
-              </p>
+            {!isPreviewPath && !preview && (
+              <Link href={`${base}/skills`} className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-white underline-offset-2 hover:text-white hover:underline">
+                <Info size={13} aria-hidden /> {tr("How completion works")}
+              </Link>
             )}
           </div>
 
@@ -197,9 +194,25 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
         </Notice>
       )}
 
-      <div className="mt-12 flex flex-wrap items-start gap-x-6 gap-y-12">
+      {bundle.activities.length > 0 && (
+        <div role="radiogroup" aria-label={tr("View")} className="mt-10 inline-flex rounded-xl border border-line bg-raised p-1">
+          {(["map", "board"] as const).map((v) => (
+            <button key={v} type="button" role="radio" aria-checked={layout === v} onClick={() => setLayout(v)} className={cn("press flex min-h-9 items-center gap-1.5 rounded-[9px] px-3.5 py-1.5 text-[13px] font-semibold", layout === v ? "bg-line text-white" : "text-muted")}>
+              {v === "map" ? <MapIcon size={15} aria-hidden /> : <Columns3 size={15} aria-hidden />} {v === "map" ? tr("Map") : tr("Board")}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-8 flex flex-wrap items-start gap-x-6 gap-y-12">
+        {/* Map: the path from start to certificate, with where you are */}
+        {bundle.activities.length > 0 && layout === "map" && (
+          <section aria-label={tr("Path map")} className="min-w-0 flex-[999_1_480px] rounded-[26px] border border-line bg-surface p-4 sm:p-6">
+            <PathMap view={view} learner={learner} currentId={nextStep(view, learner).activity?.id ?? defaultSel?.id} />
+          </section>
+        )}
         {/* Board */}
-        {bundle.activities.length > 0 && (
+        {bundle.activities.length > 0 && layout === "board" && (
           <section aria-label={tr("Interactive practice")} className="-mx-4 flex min-w-0 snap-x gap-3.5 overflow-x-auto px-4 pb-3 sm:mx-0 sm:grid sm:flex-[999_1_640px] sm:grid-cols-[repeat(auto-fit,minmax(190px,1fr))] sm:overflow-visible sm:px-0 sm:pb-0">
             {COLUMNS.map((col) => {
               const items = bundle.activities.filter((a) => columnOf(a) === col.id);
@@ -260,7 +273,7 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
                 <h2 className="font-display text-[26px] font-extrabold leading-[1.05]">{selected.title}</h2>
                 <div className="flex items-end gap-2">
                   <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-sk-amber text-xs font-bold text-[#2b1f00]" aria-hidden>{(selected.brief?.from ?? selected.contextLabel).trim()[0]}</span>
-                  <span className="line-clamp-3 rounded-[14px] rounded-es-sm bg-overlay px-3 py-[9px] text-sm leading-snug">{selected.brief?.ask ?? selected.task}</span>
+                  <span className="rounded-[14px] rounded-es-sm bg-overlay px-3 py-[9px] text-sm leading-snug"><span className="line-clamp-3">{selected.brief?.ask ?? selected.task}</span></span>
                 </div>
                 <p className="font-mono text-[11px] text-muted">{selected.contextLabel} · {tr(TEMPLATE[selected.template])} · {tr("{n} min", { n: selected.estimatedMinutes })}</p>
                 <div className="flex flex-wrap gap-1.5">
@@ -279,6 +292,19 @@ export function PathOverview({ view, learner, preview, onMoveToLatest }: { view:
                 </Link>
               </div>
             </Frame>
+          )}
+
+          {!isPreviewPath && !preview && (
+            <Link href={`${base}/certificate`} className="press flex items-center gap-3 rounded-[22px] border border-line bg-surface p-4 text-fg hover:text-fg">
+              <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl", view.completion.complete ? "bg-sk-amber text-[#2b1f00]" : "bg-raised text-subtle")} aria-hidden>
+                {view.completion.complete ? <Award size={24} /> : <Lock size={20} />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">{tr("Certificate")}</span>
+                <span className="block font-mono text-xs text-muted">{view.completion.complete ? tr("Earned · share it") : tr("{n}/{m} skills mastered", { n: view.completion.mastered.length, m: bundle.requiredSkillIds.length })}</span>
+              </span>
+              <ChevronRight size={16} aria-hidden className="shrink-0 text-accent" />
+            </Link>
           )}
 
           {bundle.explore.length > 0 && (

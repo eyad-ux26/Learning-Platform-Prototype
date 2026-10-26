@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Send } from "lucide-react";
+import { ArrowRight, Check, Send, X } from "lucide-react";
 import { walkDecision } from "@/domain/assessment";
 import { applyAffects, changesLayout } from "@/domain/preview";
-import type { Affect, DecisionActivity, DecisionNode, Screen } from "@/domain/types";
+import type { Affect, DecisionActivity, DecisionChoice, DecisionNode, Screen } from "@/domain/types";
 import { playSfx } from "@/components/sfx";
 import { Button, Kbd, cn } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { DockLayout, useDock } from "./dock";
 import { ScreenRenderer, type HighlightMode } from "./ScreenRenderer";
+import type { Brick } from "./BuildBar";
+import { StepFeedback, type StepVerdict } from "./StepFeedback";
 
 type Choices = { nodeId: string; choiceId: string }[];
 
@@ -17,7 +19,7 @@ type Choices = { nodeId: string; choiceId: string }[];
 const EFFECT_PREFIX = "fx-";
 
 /** Fewest decisions left from this node to the end of the scenario, counting the node itself. */
-function decisionsLeft(activity: DecisionActivity, nodeId: string, seen: string[] = []): number {
+export function decisionsLeft(activity: DecisionActivity, nodeId: string, seen: string[] = []): number {
   const node = activity.nodes.find((n) => n.id === nodeId);
   if (!node || seen.includes(nodeId)) return 1;
   const nexts = node.choices.map((c) => c.next);
@@ -34,60 +36,29 @@ function screenNodeFor(activity: DecisionActivity, nodeId: string, walkedIds: st
   return earlier ?? activity.nodes.find((n) => n.screen);
 }
 
-function RouteStepper({ activity, choices, onChoices, onPending, readOnly }: { activity: DecisionActivity; choices: Choices; onChoices: (c: Choices) => void; onPending?: (id: string | undefined) => void; readOnly?: boolean }) {
-  const { tr } = useI18n();
+/** Whether an option holds up: every criterion it signals is met. Options without signals are neither. */
+export function choiceVerdict(c: DecisionChoice): StepVerdict {
+  if (!c.signals.length) return "neutral";
+  return c.signals.every((g) => g.met) ? "held" : "missed";
+}
+
+/** The route as bricks: one per decision made (held up or missed), the current one, and the fewest still to come. */
+export function decisionBricks(activity: DecisionActivity, choices: Choices, feedbackNodeId?: string): Brick[] {
   const walk = walkDecision(activity, { choices });
-  const titleOf = (id: string) => activity.nodes.find((n) => n.id === id)?.title ?? "";
-  const left = walk.currentNodeId ? decisionsLeft(activity, walk.currentNodeId) : 0;
-  const items = [
-    ...walk.steps.map((s, i) => ({ state: "done" as const, n: i + 1, title: titleOf(s.nodeId) })),
-    ...(walk.currentNodeId ? [{ state: "current" as const, n: walk.steps.length + 1, title: titleOf(walk.currentNodeId) }] : []),
-    ...Array.from({ length: Math.max(0, left - 1) }, (_, k) => ({ state: "todo" as const, n: walk.steps.length + 2 + k, title: "" })),
-  ];
-  return (
-    <ol aria-label={tr("Route")} className="flex items-center rounded-2xl border border-line bg-surface px-3 py-2 lg:px-3.5 lg:py-3">
-      {items.map((it, i) => {
-        const dotClass = cn(
-          "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-[1.5px] font-mono text-[11px] font-semibold",
-          it.state === "current" && "border-brand-strong bg-brand-strong text-white ring-4 ring-brand-strong/25",
-          it.state === "done" && "border-ok bg-ok-bg text-ok",
-          it.state === "todo" && "border-line-strong text-subtle",
-        );
-        const dot = it.state === "done" ? <Check size={13} strokeWidth={2.6} aria-hidden /> : it.n;
-        const label = tr("Decision {n} · {title}", { n: it.n, title: it.title });
-        return (
-          <li key={i} className={cn("flex min-w-0 items-center", it.state === "todo" ? "flex-none" : "flex-1")} aria-current={it.state === "current" ? "step" : undefined}>
-            {it.state === "done" && !readOnly ? (
-              <button
-                type="button"
-                aria-label={`${label} · ${tr("Change")}`}
-                title={tr("Change")}
-                onClick={() => {
-                  playSfx("undo");
-                  onChoices(choices.slice(0, i));
-                  onPending?.(undefined);
-                }}
-                className={cn(dotClass, "hover:bg-ok/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent")}
-              >
-                {dot}
-              </button>
-            ) : (
-              <span className={dotClass} role="img" aria-label={it.state === "todo" ? tr("Decision {n}", { n: it.n }) : label}>
-                {dot}
-              </span>
-            )}
-            {it.state !== "todo" && (
-              <span className={cn("mx-1.5 min-w-0 truncate font-mono text-[11.5px] font-semibold", it.state === "current" ? "text-fg" : "text-muted max-sm:hidden")} aria-hidden>
-                {it.title}
-              </span>
-            )}
-            {/* Long routes (more than six decisions) tighten the connectors so every step fits on a phone. */}
-            {i < items.length - 1 && <span aria-hidden className={cn("h-0.5 flex-1 rounded-full", items.length > 6 ? "mx-0.5 min-w-1 sm:mx-1 sm:min-w-2" : "mx-1 min-w-2", it.state === "done" ? "bg-ok" : "bg-line")} />}
-          </li>
-        );
-      })}
-    </ol>
-  );
+  const nodeOf = (id: string) => activity.nodes.find((n) => n.id === id);
+  const bricks: Brick[] = walk.steps.map((s) => {
+    const node = nodeOf(s.nodeId);
+    const choice = node?.choices.find((c) => c.id === s.choiceId);
+    const v = choice ? choiceVerdict(choice) : "neutral";
+    return { state: v === "held" ? "held" : v === "missed" ? "missed" : "placed", label: node?.title ?? "" };
+  });
+  if (walk.currentNodeId) {
+    const left = decisionsLeft(activity, walk.currentNodeId);
+    // While a step's feedback is open, the next decision is not yet "here".
+    bricks.push({ state: feedbackNodeId ? "todo" : "current", label: nodeOf(walk.currentNodeId)?.title ?? "" });
+    for (let k = 1; k < left; k++) bricks.push({ state: "todo", label: "" });
+  }
+  return bricks;
 }
 
 export function DecisionControls({
@@ -97,6 +68,8 @@ export function DecisionControls({
   readOnly,
   pending,
   onPending,
+  feedbackNodeId,
+  onFeedback,
 }: {
   activity: DecisionActivity;
   choices: Choices;
@@ -105,14 +78,15 @@ export function DecisionControls({
   /** The option being considered at the current node (owned by the parent so the preview can highlight what it touches). */
   pending?: string;
   onPending?: (optionId: string | undefined) => void;
+  /** The decision whose feedback is open. Decisions are final once made: the feedback shows whether they held up. */
+  feedbackNodeId?: string;
+  onFeedback?: (nodeId: string | undefined) => void;
 }) {
   const { tr } = useI18n();
   const dock = useDock();
   const walk = walkDecision(activity, { choices });
+  if (readOnly) return null;
   const node = activity.nodes.find((n) => n.id === walk.currentNodeId);
-  const route = <RouteStepper activity={activity} choices={choices} onChoices={onChoices} onPending={onPending} readOnly={readOnly} />;
-  if (readOnly) return route;
-
   const stepNo = walk.steps.length + 1;
   const total = walk.steps.length + (walk.currentNodeId ? decisionsLeft(activity, walk.currentNodeId) : 0);
   const picked = node?.choices.find((c) => c.id === pending)?.id;
@@ -124,12 +98,68 @@ export function DecisionControls({
     dock.setCollapsed(true);
   };
   const decide = () => {
-    if (!node || !picked) return;
-    playSfx("apply");
-    onChoices([...choices, { nodeId: node.id, choiceId: picked }]);
+    if (!node || !pickedChoice) return;
+    playSfx(choiceVerdict(pickedChoice) === "missed" ? "miss" : "correct");
+    onChoices([...choices, { nodeId: node.id, choiceId: pickedChoice.id }]);
     onPending?.(undefined);
+    onFeedback?.(node.id);
     dock.setCollapsed(false);
   };
+
+  // Feedback for the decision just made.
+  const fbIndex = feedbackNodeId ? walk.steps.findIndex((s) => s.nodeId === feedbackNodeId) : -1;
+  const fbNode = fbIndex >= 0 ? activity.nodes.find((n) => n.id === feedbackNodeId) : undefined;
+  const fbChoice = fbNode?.choices.find((c) => c.id === walk.steps[fbIndex].choiceId);
+  if (fbNode && fbChoice) {
+    const v = choiceVerdict(fbChoice);
+    const better = v === "missed" ? fbNode.choices.filter((c) => choiceVerdict(c) === "held").map((c) => c.label) : [];
+    const title = v === "held" ? tr("Holds up") : v === "missed" ? tr("Doesn’t hold up") : tr("Noted");
+    const next = () => {
+      playSfx("tap");
+      onFeedback?.(undefined);
+      if (walk.finished) dock.submit?.();
+    };
+    return (
+      <DockLayout
+        bodyKey={`fb-${fbNode.id}`}
+        summary={
+          <button type="button" onClick={() => dock.setCollapsed(false)} className="flex w-full items-center gap-3 rounded-2xl border border-line bg-raised px-3 py-2.5 text-start">
+            <span className={cn("shrink-0 font-mono text-[11px] font-semibold", v === "held" ? "text-ok" : v === "missed" ? "text-bad" : "text-accent")}>{title}</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-fg">{fbChoice.label}</span>
+          </button>
+        }
+        body={
+          <div key={fbNode.id} className="rounded-[22px] border-[1.5px] border-line bg-surface p-4 sm:p-5 max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent max-lg:p-0">
+            <p className="mb-2.5 font-mono text-xs font-semibold text-accent">{tr("Decision {n} · {title}", { n: fbIndex + 1, title: fbNode.title })}</p>
+            <StepFeedback
+              verdict={v}
+              title={title}
+              subtitle={fbChoice.label}
+              example={fbChoice.consequence}
+              better={better.length ? better.join(" / ") : undefined}
+              why={
+                fbChoice.signals.length ? (
+                  <ul className="space-y-1.5">
+                    {fbChoice.signals.map((g, j) => (
+                      <li key={j} className="flex items-start gap-2">
+                        {g.met ? <Check size={14} className="mt-0.5 shrink-0 text-ok" aria-label={tr("Met")} /> : <X size={14} className="mt-0.5 shrink-0 text-bad" aria-label={tr("Not met")} />}
+                        <span>{g.because}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : undefined
+              }
+            />
+          </div>
+        }
+        foot={
+          <Button variant="primary" size="lg" className="nudge w-full max-lg:h-11" onClick={next}>
+            {walk.finished ? <><Send size={15} aria-hidden /> {tr("See results")}</> : <>{tr("Next decision")} <ArrowRight size={16} aria-hidden /></>}
+          </Button>
+        }
+      />
+    );
+  }
 
   const summary = node ? (
     <button type="button" onClick={() => dock.setCollapsed(false)} className="flex w-full items-center gap-3 rounded-2xl border border-line bg-raised px-3 py-2.5 text-start">
@@ -198,23 +228,23 @@ export function DecisionControls({
       </div>
     </fieldset>
   ) : walk.finished ? (
-    <p className="rounded-lg border border-ok/30 bg-ok-bg p-3 text-sm text-fg">{tr("You reached the end of the scenario. Submit your decisions, or change any of them above.")}</p>
+    <p className="flex items-center gap-2 rounded-xl border border-ok/30 bg-ok-bg p-3 text-sm text-fg">
+      <Check size={16} className="shrink-0 text-ok" aria-hidden /> {tr("That was the last decision. Submit to see how your build holds up.")}
+    </p>
   ) : null;
 
   const foot = node ? (
-    <>
-      <Button variant="primary" size="lg" className="w-full max-lg:h-11" disabled={!picked} onClick={decide}>
-        {tr("Decide")}
-        <span aria-hidden className="rounded-md bg-black/20 px-1.5 font-mono text-xs font-semibold max-sm:hidden">↵</span>
-      </Button>
-    </>
+    <Button variant="primary" size="lg" className={cn("w-full max-lg:h-11", picked && "nudge")} disabled={!picked} onClick={decide}>
+      {tr("Decide")}
+      <span aria-hidden className="rounded-md bg-black/20 px-1.5 font-mono text-xs font-semibold max-sm:hidden">↵</span>
+    </Button>
   ) : walk.finished ? (
     <Button variant="primary" size="lg" className="h-11 w-full lg:hidden" onClick={() => dock.submit?.()}>
       <Send size={15} aria-hidden /> {tr("Submit response")}
     </Button>
   ) : undefined;
 
-  return <DockLayout head={route} summary={summary} body={body} foot={foot} />;
+  return <DockLayout bodyKey={node?.id ?? "end"} summary={summary} body={body} foot={foot} />;
 }
 
 /** Chat thread for the Brief column: the situation, the learner's pick and its consequence for every step, then the current situation. */

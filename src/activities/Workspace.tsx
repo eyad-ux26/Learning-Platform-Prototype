@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, ChevronDown, Clock, HelpCircle, Lightbulb, Lock, RotateCcw, Save, Send } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, ChevronDown, Clock, HelpCircle, Lightbulb, Lock, MapPin, RotateCcw, Save, Send } from "lucide-react";
 import { checkCompleteness, emptyResponse, evaluate, skillsAssessedBy, walkDecision } from "@/domain/assessment";
 import type { Activity, ActivityResponse, Attempt, DesignDimension, Evaluation, WorkDraft } from "@/domain/types";
 import { t } from "@/i18n/en";
@@ -14,8 +14,9 @@ import { SkillStatusBadge } from "@/components/SkillStatus";
 import { SkillRing } from "@/components/SkillRing";
 import { playSfx } from "@/components/sfx";
 import { DesignBenchControls, DesignBenchStage } from "./DesignBench";
-import { CritiqueControls, CritiqueStage, critiqueMarks } from "./Critique";
-import { DecisionControls, DecisionStage, DecisionThread } from "./Decision";
+import { CritiqueControls, CritiqueStage, critiqueBricks, critiqueMarks } from "./Critique";
+import { DecisionControls, DecisionStage, DecisionThread, decisionBricks } from "./Decision";
+import { BuildBar, type Brick } from "./BuildBar";
 import { BriefIntro, ClientChat } from "./Brief";
 import { DockContext } from "./dock";
 import { FeedbackPanel } from "./Feedback";
@@ -24,8 +25,8 @@ import { behavioursFor, initialPreviewState, type PreviewState } from "./Proposa
 const TEMPLATE_LABEL = { "design-bench": "Design Bench", critique: "Critique a Design", decision: "Decision Scenario" } as const;
 const HOW_IT_WORKS = {
   "design-bench": "Choose one option for each design decision. The preview updates as you choose, and you can use it as a user would. Several combinations can meet the criteria; each option has tradeoffs.",
-  critique: "Review every numbered element. Mark each as acceptable or problematic and choose the main reason. Both the judgement and the reason are assessed. Notes are saved but not assessed.",
-  decision: "Work through the scenario. Each decision leads to consequences and a follow-up. You can change an earlier decision before submitting.",
+  critique: "Review every numbered element. Mark each as acceptable or problematic, choose the main reason, then check it. Both the judgement and the reason are assessed, and a checked judgement is final. Notes are saved but not assessed.",
+  decision: "Work through the scenario one decision at a time. After each decision you see whether it holds up and what happens next. Decisions are final, so the result shows your own calls.",
 } as const;
 
 /** "controls" is kept for stored state compatibility; below lg the controls live in a bottom sheet, so it maps to "stage". */
@@ -58,7 +59,10 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
   const [helpOpen, setHelpOpen] = useState(false);
   // Shared between the controls and the live preview so the preview can show what the current question touches.
   const [benchDim, setBenchDim] = useState<DesignDimension | undefined>();
+  const [benchStep, setBenchStep] = useState(0);
   const [pending, setPending] = useState<string | undefined>();
+  // The decision whose feedback is open (decision scenarios show feedback after every decision).
+  const [stepFeedback, setStepFeedback] = useState<string | undefined>();
   const [reviewNode, setReviewNode] = useState<string | undefined>();
   const [collapsed, setCollapsed] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -118,6 +122,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
 
   let controls: React.ReactNode = null;
   let stage: React.ReactNode = null;
+  let bricks: Brick[] = [];
   let controlsLabel = "Your response";
   const readOnly = phase === "feedback";
   const evaluation = phase === "feedback" ? result?.evaluation : undefined;
@@ -130,7 +135,12 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
       const fresh = initialPreviewState(raw, behavioursFor(raw, selections));
       updateResponse({ template: "design-bench", selections }, { preview: { ...fresh, sourceOpen: preview?.sourceOpen } });
     };
-    controls = <DesignBenchControls activity={activity} selections={response.selections} onSelect={onSelect} onStep={setBenchDim} readOnly={readOnly} evaluation={evaluation} />;
+    controls = <DesignBenchControls activity={activity} selections={response.selections} onSelect={onSelect} onStep={(dim, i) => { setBenchDim(dim); setBenchStep(i); }} readOnly={readOnly} evaluation={evaluation} />;
+    bricks = activity.decisions.map((d, i) => {
+      const chosen = !!response.selections[d.id];
+      const here = phase === "working" && i === benchStep;
+      return { label: d.prompt, state: chosen ? "placed" : here ? "current" : "todo", here: here && chosen };
+    });
     stage = <DesignBenchStage activity={activity} selections={response.selections} preview={preview!} onPreview={(s) => updateUi({ preview: s })} readOnly={false} activeDimension={phase === "working" ? benchDim : undefined} />;
   } else if (activity.template === "critique" && response.template === "critique") {
     controlsLabel = "Review";
@@ -141,12 +151,27 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
       if (id && phase === "working") setCollapsed(false);
     };
     const onReview = (id: string, patch: (typeof response.reviews)[string]) => updateResponse({ template: "critique", reviews: { ...response.reviews, [id]: patch } });
-    controls = <CritiqueControls activity={activity} reviews={response.reviews} selected={selected} onSelect={onSelect} onReview={onReview} readOnly={readOnly} />;
-    stage = <CritiqueStage activity={activity} reviews={response.reviews} selected={selected} onSelect={onSelect} evaluation={evaluation} />;
+    const checked = (ui.checked as string[] | undefined) ?? [];
+    const onCheck = (id: string) => updateUi({ checked: [...checked.filter((x) => x !== id), id] });
+    controls = <CritiqueControls activity={activity} reviews={response.reviews} selected={selected} onSelect={onSelect} onReview={onReview} readOnly={readOnly} checked={checked} onCheck={onCheck} />;
+    stage = <CritiqueStage activity={activity} reviews={response.reviews} selected={selected} onSelect={onSelect} evaluation={evaluation} checked={checked} />;
+    bricks = critiqueBricks(activity, response.reviews, phase === "working" ? selected : undefined, checked, phase === "feedback");
   } else if (activity.template === "decision" && response.template === "decision") {
     controlsLabel = "Decisions";
-    controls = <DecisionControls activity={activity} choices={response.choices} onChoices={(choices) => updateResponse({ template: "decision", choices })} readOnly={readOnly} pending={pending} onPending={setPending} />;
-    stage = <DecisionStage activity={activity} choices={response.choices} pending={phase === "working" ? pending : undefined} reviewNodeId={phase === "feedback" ? reviewNode : undefined} />;
+    controls = (
+      <DecisionControls
+        activity={activity}
+        choices={response.choices}
+        onChoices={(choices) => updateResponse({ template: "decision", choices })}
+        readOnly={readOnly}
+        pending={pending}
+        onPending={setPending}
+        feedbackNodeId={stepFeedback}
+        onFeedback={setStepFeedback}
+      />
+    );
+    stage = <DecisionStage activity={activity} choices={response.choices} pending={phase === "working" ? pending : undefined} reviewNodeId={phase === "feedback" ? reviewNode : stepFeedback} />;
+    bricks = decisionBricks(activity, response.choices, phase === "working" ? stepFeedback : undefined);
   }
 
   // ---------- Actions ----------
@@ -179,13 +204,24 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
       const reopened = walk.steps.find((st) => rawActivity.nodes.find((n) => n.id === st.nodeId)?.choices.find((c) => c.id === st.choiceId)?.signals.some((g) => !g.met));
       setReviewNode((reopened ?? walk.steps[0])?.nodeId);
     }
+    setStepFeedback(undefined);
     setPhase("feedback");
     setSection("feedback");
     window.scrollTo({ top: 0, behavior: "smooth" });
     requestAnimationFrame(() => document.getElementById("feedback-heading")?.focus());
   };
 
+  // Decisions and checked judgements are final, so trying again starts a fresh route; Design Bench keeps the choices to revise.
+  const startsFresh = rawActivity.template !== "design-bench";
   const retry = () => {
+    if (startsFresh) {
+      const r = emptyResponse(rawActivity);
+      setResponse(r);
+      setUi({});
+      setStepFeedback(undefined);
+      setPending(undefined);
+      persist({ response: r, ui: {}, hintsUsed: false, solutionRevealed: false });
+    }
     setPhase("working");
     setResult(null);
     setSection("stage");
@@ -193,13 +229,15 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
     // A new attempt starts unassisted unless help is used again.
     setHintsShown(0);
     setSolutionRevealed(false);
-    persist({ hintsUsed: false, solutionRevealed: false });
+    if (!startsFresh) persist({ hintsUsed: false, solutionRevealed: false });
   };
 
   const reset = () => {
     const r = emptyResponse(rawActivity);
     setResponse(r);
     setUi({});
+    setStepFeedback(undefined);
+    setPending(undefined);
     setMissing(null);
     setPhase("working");
     setResult(null);
@@ -222,6 +260,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
 
   // ---------- Layout ----------
   const skillIds = skillsAssessedBy(rawActivity, view.rawBundle.skills);
+  const activityNo = view.bundle.activities.findIndex((a) => a.id === activity.id) + 1;
   // Below lg the questions live in a bottom sheet, so there is no separate tab for them while working.
   const tabs: { id: Section; label: string; className?: string }[] = [
     { id: "brief", label: tr("Brief") },
@@ -318,11 +357,18 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
         </Link>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-accent max-lg:flex-nowrap max-lg:overflow-hidden max-lg:whitespace-nowrap max-lg:text-[11px]">
-            <span>{tr(TEMPLATE_LABEL[activity.template])}</span>
+            {/* Where this activity sits in the path. */}
+            <span className="inline-flex min-w-0 items-center gap-1 text-fg">
+              <MapPin size={12} aria-hidden className="shrink-0 text-accent" />
+              <span className="truncate max-lg:max-w-[14rem]">{view.bundle.meta.title}</span>
+              <span className="shrink-0 text-muted">{tr("{n}/{m}", { n: activityNo, m: view.bundle.activities.length })}</span>
+            </span>
+            <span aria-hidden className="max-sm:hidden">·</span>
+            <span className="max-sm:hidden">{tr(TEMPLATE_LABEL[activity.template])}</span>
             <span aria-hidden className="max-lg:hidden">·</span>
             <span className="max-lg:hidden">{activity.contextLabel}</span>
-            <span aria-hidden>·</span>
-            <span className="inline-flex items-center gap-1"><Clock size={12} aria-hidden className="max-lg:hidden" /> {tr("about {n} min", { n: activity.estimatedMinutes })}</span>
+            <span aria-hidden className="max-sm:hidden">·</span>
+            <span className="inline-flex items-center gap-1 max-sm:hidden"><Clock size={12} aria-hidden className="max-lg:hidden" /> {tr("about {n} min", { n: activity.estimatedMinutes })}</span>
             {view.bundle.meta.freeSampleActivityIds.includes(activity.id) && <Badge tone="accent" className="max-lg:hidden">{tr(t.access.free)}</Badge>}
             {activity.kind === "alternative" && <Badge className="max-lg:hidden">{tr("Alternative practice")}</Badge>}
             {mode === "preview" && <Badge tone="ai">{tr("Admin preview · v{version}", { version })}</Badge>}
@@ -355,6 +401,9 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
           )}
         </div>
       </div>
+
+      {/* The build: one brick per step, so it is always clear where you are in the activity. */}
+      {bricks.length > 0 && phase === "working" && <BuildBar bricks={bricks} className="mt-2 lg:mt-3 lg:max-w-xl" />}
 
       {(hintsUsed || solutionRevealed) && phase === "working" && (
         <p className="mt-1 truncate text-[11px] text-warn lg:mt-3 lg:whitespace-normal lg:text-xs">
@@ -416,6 +465,7 @@ export function Workspace({ view, activity, mode, backHref }: { view: PathView; 
                   evaluation={result.evaluation}
                   mode={mode}
                   onRetry={retry}
+                  bricks={bricks}
                   critique={response.template === "critique" ? { reviews: response.reviews, selected: ui.selected as string | undefined, onSelect: (id) => updateUi({ selected: id || undefined }) } : undefined}
                   decision={response.template === "decision" ? { choices: response.choices, selectedNodeId: reviewNode, onSelectNode: (id) => setReviewNode(id || undefined) } : undefined}
                 />

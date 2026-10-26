@@ -1,3 +1,4 @@
+import rewards from "./ui-rewards";
 import { registerEgyptian } from "../core";
 import review from "./ui-review";
 import ui1 from "./ui-1";
@@ -13,4 +14,4 @@ import home from "./ui-home";
 import makeItClear from "./path-make-it-clear";
 
 // Egyptian layer: entries here win over the Modern Standard Arabic base; anything missing falls back to it.
-registerEgyptian(makeItClear, home, review, c1, c2, c3, c4, c5, library, domain, ui1, ui2);
+registerEgyptian(rewards, makeItClear, home, review, c1, c2, c3, c4, c5, library, domain, ui1, ui2);
