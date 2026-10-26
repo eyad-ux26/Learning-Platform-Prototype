@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, ChevronDown, RotateCcw, X } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
 import { walkDecision } from "@/domain/assessment";
 import type { DecisionActivity, DecisionChoice, Evaluation } from "@/domain/types";
 import { playSfx } from "@/components/sfx";
 import { cn } from "@/components/ui";
 import { useI18n } from "@/i18n";
+import { BetterNote, ExampleNote, WhyDetails } from "./StepFeedback";
 
 type Choices = { nodeId: string; choiceId: string }[];
 
@@ -49,7 +50,7 @@ export function DecisionReview({
               className="flex w-full items-center gap-3.5 rounded-[16px] px-4 py-3.5 text-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]", ok ? "bg-ok-bg text-ok" : "bg-bad-bg text-bad")}>
-                {ok ? <Check size={16} strokeWidth={2.6} aria-hidden /> : <RotateCcw size={16} strokeWidth={2.6} aria-hidden />}
+                {ok ? <Check size={16} strokeWidth={2.6} aria-hidden /> : <X size={16} strokeWidth={2.6} aria-hidden />}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block font-mono text-[11px] text-subtle">{tr("Decision {n} · {title}", { n: i + 1, title: node.title })}</span>
@@ -59,27 +60,20 @@ export function DecisionReview({
               <ChevronDown size={16} aria-hidden className={cn("shrink-0 text-subtle transition-transform", open && "rotate-180")} />
             </button>
             {open && (
-              <div id={panelId} className="flex animate-rise flex-col gap-2.5 px-4 pb-4 ps-[3.875rem]">
-                <p className="max-w-[32.5rem] rounded-2xl rounded-es-sm bg-overlay px-3 py-2.5 text-sm leading-snug text-fg">
-                  <span className="block font-mono text-[11px] text-subtle">{tr("What happened")}</span>
-                  {choice.consequence}
-                </p>
-                <ul className="flex flex-col gap-1.5">
-                  {choice.signals.map((g, j) => (
-                    <li key={j} className="flex items-start gap-2 text-sm leading-snug text-fg">
-                      <span className={cn("mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full", g.met ? "bg-ok-bg text-ok" : "bg-bad-bg text-bad")}>
-                        {g.met ? <Check size={11} strokeWidth={3} aria-hidden /> : <X size={11} strokeWidth={3} aria-hidden />}
-                        <span className="sr-only">{g.met ? tr("Met") : tr("Not met")}</span>
-                      </span>
-                      <span>{g.because}</span>
-                    </li>
-                  ))}
-                </ul>
-                {better.length > 0 && (
-                  <p className="text-sm leading-relaxed text-muted">
-                    <span className="font-semibold text-fg">{tr("What holds up.")} </span>
-                    {better.join(" / ")}
-                  </p>
+              <div id={panelId} className="flex animate-rise flex-col gap-2.5 px-4 pb-4 sm:ps-[3.875rem]">
+                <ExampleNote label={tr("What happened")}>{choice.consequence}</ExampleNote>
+                {!ok && better.length > 0 && <BetterNote label={tr("Holds up:")}>{better.join(" / ")}</BetterNote>}
+                {choice.signals.length > 0 && (
+                  <WhyDetails label={tr("Why?")}>
+                    <ul className="flex flex-col gap-1.5">
+                      {choice.signals.map((g, j) => (
+                        <li key={j} className="flex items-start gap-2">
+                          {g.met ? <Check size={14} className="mt-0.5 shrink-0 text-ok" aria-label={tr("Met")} /> : <X size={14} className="mt-0.5 shrink-0 text-bad" aria-label={tr("Not met")} />}
+                          <span>{g.because}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </WhyDetails>
                 )}
               </div>
             )}

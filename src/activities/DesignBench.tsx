@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, ArrowRight, BadgeCheck, Ban, Check, ClipboardCheck, Clock, Eye, FilePen, Files, GitCompare, Hash, History, Info, ListChecks, MessageSquareQuote, MousePointerClick, PenLine,
-  Percent, RefreshCw, Rows3, ScanSearch, Send, Settings, ShieldAlert, ShieldCheck, Sparkles, SquareDashed, TextCursorInput, Undo2, Zap, type LucideIcon,
+  Percent, RefreshCw, Rows3, ScanSearch, Send, Settings, ShieldAlert, ShieldCheck, Sparkles, SquareDashed, TextCursorInput, Undo2, UserRound, Zap, type LucideIcon,
 } from "lucide-react";
 import type { Behaviour, DesignBenchActivity, DesignDimension, Evaluation } from "@/domain/types";
 import { playSfx } from "@/components/sfx";
@@ -49,7 +49,7 @@ export function DesignBenchControls({
   readOnly?: boolean;
   evaluation?: Evaluation;
   /** Fired on mount and whenever the visible decision step changes, with that decision's dimension. */
-  onStep?: (dimension: DesignDimension) => void;
+  onStep?: (dimension: DesignDimension, index: number) => void;
 }) {
   const { tr } = useI18n();
   const total = activity.decisions.length;
@@ -65,7 +65,7 @@ export function DesignBenchControls({
     onStepRef.current = onStep;
   });
   useEffect(() => {
-    onStepRef.current?.(activity.decisions[step].dimension);
+    onStepRef.current?.(activity.decisions[step].dimension, step);
   }, [activity, step]);
   const dock = useDock();
   const go = (i: number) => {
@@ -76,7 +76,7 @@ export function DesignBenchControls({
   };
   const choose = (optionId: string) => {
     if (readOnly) return;
-    playSfx("pick");
+    playSfx(selections[d.id] ? "pick" : "brick");
     onSelect(d.id, optionId);
     // Phones: tuck the question away so the interface shows what the choice did.
     dock.setCollapsed(true);
@@ -203,6 +203,17 @@ export function DesignBenchControls({
             );
           })}
         </div>
+        {chosenHere && !readOnly && (
+          <figure key={chosenHere.id} className="animate-rise flex gap-2.5 rounded-2xl bg-overlay p-3" aria-live="polite">
+            <span aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sk-sky/20 text-sk-sky">
+              <UserRound size={15} />
+            </span>
+            <div className="min-w-0">
+              <figcaption className="font-mono text-[10.5px] font-semibold text-subtle">{tr("What happens")}</figcaption>
+              <p className="text-sm leading-snug text-fg">{chosenHere.consequence}</p>
+            </div>
+          </figure>
+        )}
         {tip && (
           <p className="animate-rise rounded-xl border border-line-strong bg-raised p-3 text-sm leading-relaxed text-muted" role="note">
             <span className="font-semibold text-fg">{d.options.find((o) => o.id === tip)?.label}. </span>
@@ -223,7 +234,7 @@ export function DesignBenchControls({
         type="button"
         onClick={() => go(step + 1)}
         disabled={lastStep || !canAdvance}
-        className={cn("h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors max-lg:hidden lg:flex", canAdvance && !lastStep ? "bg-brand text-white hover:bg-brand-strong" : "bg-line text-subtle")}
+        className={cn("h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors max-lg:hidden lg:flex", canAdvance && !lastStep ? "nudge bg-brand text-white hover:bg-brand-strong" : "bg-line text-subtle")}
       >
         {lastStep ? tr("Last decision") : tr("Next decision")} <ArrowRight size={15} aria-hidden />
       </button>
@@ -232,7 +243,7 @@ export function DesignBenchControls({
         type="button"
         onClick={() => (lastStep ? dock.submit?.() : go(step + 1))}
         disabled={!canAdvance}
-        className={cn("flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors lg:hidden", canAdvance ? "bg-brand-strong text-white" : "bg-line text-subtle")}
+        className={cn("flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors lg:hidden", canAdvance ? "nudge bg-brand-strong text-white" : "bg-line text-subtle")}
       >
         {lastStep ? <><Send size={15} aria-hidden /> {tr("Submit response")}</> : <>{tr("Next decision")} <ArrowRight size={15} aria-hidden /></>}
       </button>

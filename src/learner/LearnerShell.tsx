@@ -6,23 +6,27 @@ import { AlertTriangle, BookOpen, Columns3, LayoutGrid, LineChart, Settings2, Us
 import { FLAGSHIP_ID } from "@/content/flagship";
 import { t, PRODUCT_NAME } from "@/i18n/en";
 import { useI18n } from "@/i18n";
-import { useApp } from "@/state/AppState";
+import { useApp, visibleLibrary } from "@/state/AppState";
+import { useMemo } from "react";
+import { currentPath } from "./whereAmI";
 import { Button, cn } from "@/components/ui";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { RankRing, RepPill, StreakPill } from "./StatPills";
 import { useProgression } from "./useProgression";
 
-const NAV = [
+/** Board and Field notes open the path the learner is on. */
+const navFor = (pathId: string) => [
   { href: "/", label: "HQ", icon: LayoutGrid, match: (p: string) => p === "/" },
-  { href: `/paths/${FLAGSHIP_ID}`, label: "Board", icon: Columns3, match: (p: string) => p.startsWith("/paths") && !p.includes("/explore/") },
-  { href: `/paths/${FLAGSHIP_ID}#field-notes`, label: "Field notes", icon: BookOpen, match: (p: string) => p.includes("/explore/") },
+  { href: `/paths/${pathId}`, label: "Board", icon: Columns3, match: (p: string) => p.startsWith("/paths") && !p.includes("/explore/") },
+  { href: `/paths/${pathId}#field-notes`, label: "Field notes", icon: BookOpen, match: (p: string) => p.includes("/explore/") },
   { href: "/progress", label: "Progress", icon: LineChart, match: (p: string) => p.startsWith("/progress") },
 ];
 
 export function LearnerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { tr } = useI18n();
-  const { learner, loadStatus, dismissLoadStatus, dispatch } = useApp();
+  const { state, learner, loadStatus, dismissLoadStatus, dispatch } = useApp();
+  const NAV = navFor(useMemo(() => currentPath(visibleLibrary(state, learner), learner)?.bundle.meta.id ?? FLAGSHIP_ID, [state, learner]));
   const progression = useProgression();
   const soundOn = learner.preferences.sound !== false;
   const account = pathname.startsWith("/account") || pathname.startsWith("/subscribe");

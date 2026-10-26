@@ -11,6 +11,7 @@ import { ExploreIndex } from "./(learner)/paths/[pathId]/explore/View";
 import { ExplorePage } from "./(learner)/paths/[pathId]/explore/[conceptId]/View";
 import { PracticePage } from "./(learner)/paths/[pathId]/practice/[activityId]/View";
 import { SkillsPage } from "./(learner)/paths/[pathId]/skills/View";
+import { CertificatePage } from "./(learner)/paths/[pathId]/certificate/View";
 import { ActivityEditorPage } from "./admin/content/[activityId]/View";
 import { PathEditorPage } from "./admin/paths/[pathId]/View";
 import { PreviewOverview } from "./admin/preview/[pathId]/View";
@@ -29,6 +30,7 @@ const ROUTES: { re: RegExp; keys: string[]; shell: "learner" | "admin"; View: (p
   { re: /^\/paths\/([^/]+)\/explore\/([^/]+)$/, keys: ["pathId", "conceptId"], shell: "learner", View: ExplorePage },
   { re: /^\/paths\/([^/]+)\/practice\/([^/]+)$/, keys: ["pathId", "activityId"], shell: "learner", View: PracticePage },
   { re: /^\/paths\/([^/]+)\/skills$/, keys: ["pathId"], shell: "learner", View: SkillsPage },
+  { re: /^\/paths\/([^/]+)\/certificate$/, keys: ["pathId"], shell: "learner", View: CertificatePage },
   { re: /^\/admin\/content\/([^/]+)$/, keys: ["activityId"], shell: "admin", View: ActivityEditorPage },
   { re: /^\/admin\/paths\/([^/]+)$/, keys: ["pathId"], shell: "admin", View: PathEditorPage },
   { re: /^\/admin\/preview\/([^/]+)$/, keys: ["pathId"], shell: "admin", View: PreviewOverview },

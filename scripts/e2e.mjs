@@ -164,7 +164,7 @@ await journey("2. Fail a criterion and receive an alternative challenge", async 
 await journey("3. Refresh and resume an unfinished response", async () => {
   await switchTo("Daniel");
   await go("/");
-  await page.getByRole("link", { name: "Resume activity" }).click();
+  await page.getByRole("link", { name: /^Resume/ }).first().click();
   await page.waitForURL(/practice\/bench-summary/);
   await page.getByRole("heading", { name: "A summary at the top of a policy" }).waitFor();
   check(await isPicked(/Insert it as a labelled ‘Assistant draft’ block/), "saved selection should be restored");
@@ -188,7 +188,7 @@ await journey("4. Simulate an upgrade and return to the original activity", asyn
   await page.getByRole("dialog").getByRole("button", { name: "Simulate upgrade" }).click();
   await page.waitForURL(/practice\/scenario-replan/);
   await page.getByRole("heading", { name: "Replanning 214 tasks after a slip" }).waitFor();
-  check(await page.getByText("A small change first", { exact: true }).isVisible(), "the activity should be playable after upgrade");
+  check(await page.getByText(/A small change first/).first().isVisible(), "the activity should be playable after upgrade");
   await shot("11-returned-after-upgrade");
 });
 
@@ -256,7 +256,7 @@ await journey("H. Switch to Arabic, work in right-to-left, switch back", async (
   await go("/");
   await setLang("ar");
   check((await page.evaluate(() => document.documentElement.dir)) === "rtl", "Arabic should be right-to-left");
-  check(await page.getByRole("heading", { name: "التخصصات" }).isVisible(), "home heading should be Arabic");
+  check(await page.getByRole("heading", { name: "كل المسارات" }).isVisible(), "home heading should be Arabic");
   await shot("18-arabic-home");
   await go("/paths/calibrated-trust/practice/bench-deadline");
   await page.getByText(/^طلب العميل ·/).waitFor();
@@ -308,6 +308,11 @@ await journey("I. Critique one element at a time, then open the ship review tick
     check((await page.locator('input[name^="reason-"]').count()) === 0, "reasons should appear after the verdict");
     await page.locator("label").filter({ hasText: i % 2 ? "Works for the reader" : "Needs a change" }).click();
     await page.locator('label:has(input[name^="reason-"])').first().click();
+    // Each judgement is checked right away: a verdict, then one example from the screen.
+    await page.getByRole("button", { name: "Check answer" }).click();
+    await page.getByText(/^(Judged right|Not quite)$/).first().waitFor();
+    check(await page.getByText("On this screen").isVisible(), "feedback should show an example from the screen");
+    if (i === 0) await shot("22b-critique-step-feedback");
     if (i < 7) await page.getByRole("button", { name: /Next element/ }).click();
   }
   await page.getByRole("button", { name: "Submit response" }).click();
@@ -328,6 +333,12 @@ await journey("J. Decision scenario as a chat, then the route tickets", async ()
     if (!(await decide.count())) break;
     await page.locator('label:has(input[type=radio])').first().click();
     await decide.click();
+    // Feedback after every decision: the verdict and what happens, before moving on.
+    await page.getByText(/^(Holds up|Doesn’t hold up|Noted)$/).first().waitFor();
+    check(await page.getByText("What happens", { exact: true }).isVisible(), "decision feedback should show what happens");
+    if (i === 0) await shot("24b-decision-step-feedback");
+    const next = page.getByRole("button", { name: "Next decision" });
+    if (await next.count()) await next.click();
     await page.waitForTimeout(200);
   }
   await page.getByRole("button", { name: "Submit response" }).click();
@@ -335,6 +346,43 @@ await journey("J. Decision scenario as a chat, then the route tickets", async ()
   check(await page.getByText("HELD UP", { exact: true }).isVisible(), "ship review should show the held-up card");
   check(await page.getByText(/Your route/).isVisible(), "ship review should list the route tickets");
   await shot("25-decision-ship-review", { fullPage: true });
+});
+
+await journey("L. Finish a path, earn the badge and share the certificate", async () => {
+  await switchTo("Tomás");
+  await go("/");
+  check(await page.getByText("You are here", { exact: true }).isVisible(), "home should say where the learner is");
+  check(await page.getByRole("list", { name: "Path map" }).isVisible(), "home should show the path map");
+  await go("/paths/calibrated-trust/certificate");
+  check(await page.getByText("Master all 4 skills to earn it.").isVisible(), "the certificate should be locked before completion");
+  await go("/paths/calibrated-trust/practice/scenario-replan");
+  // A route where every decision holds up: commitment is met in a new context, so the path completes.
+  for (const id of ["inline", "staged", "revert-selected", "label"]) {
+    await page.locator(`input[value="${id}"]`).locator("xpath=..").click();
+    await page.getByRole("button", { name: /^Decide/ }).click();
+    await page.getByText("Holds up", { exact: true }).waitFor();
+    const next = page.getByRole("button", { name: /Next decision|See results/ });
+    await next.click();
+  }
+  await page.locator("#feedback-heading").waitFor();
+  check(await page.getByText("4 of 4 held up").isVisible(), "the result should count the held-up decisions");
+  check(await page.getByRole("img", { name: /^Path complete:/ }).isVisible(), "completing the path should award the badge");
+  await shot("26-path-complete-result", { fullPage: true });
+  await page.getByRole("link", { name: "Get your certificate" }).click();
+  await page.getByText("Tomás Lindqvist", { exact: true }).waitFor();
+  // LinkedIn opens pre-filled with the certification; capture the link instead of leaving the app.
+  await page.evaluate(() => { window.__opened = []; window.open = (u) => { window.__opened.push(u); return null; }; });
+  await page.getByRole("button", { name: /Add to LinkedIn profile/ }).click();
+  const opened = await page.evaluate(() => window.__opened[0] ?? "");
+  check(/^https:\/\/www\.linkedin\.com\/profile\/add\?/.test(opened) && opened.includes("startTask=CERTIFICATION_NAME"), `LinkedIn add-to-profile link expected, got ${opened}`);
+  check(await page.getByText(/Prototype certificate · not an accredited or verified credential/).isVisible(), "the certificate should say it is a prototype");
+  await shot("27-certificate", { fullPage: true });
+  // The shared link shows the same certificate to someone else.
+  const code = await page.locator("#certificate dd").nth(1).textContent();
+  await switchTo("Maya");
+  await go(`/paths/calibrated-trust/certificate?n=${encodeURIComponent("Tomás Lindqvist")}&d=2026-10-26&c=${code}`);
+  check(await page.getByText("A shared certificate").isVisible(), "a shared link should be labelled as shared");
+  check(await page.getByText("Tomás Lindqvist", { exact: true }).isVisible(), "a shared link should show the learner's name");
 });
 
 await journey("Responsive layouts (1024 and 390)", async () => {

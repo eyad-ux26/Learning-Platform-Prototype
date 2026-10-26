@@ -17,13 +17,13 @@ export interface DockState {
 export const DockContext = createContext<DockState>({ collapsed: false, setCollapsed: () => {} });
 export const useDock = () => useContext(DockContext);
 
-export function DockLayout({ head, summary, body, foot, className }: { head?: ReactNode; summary?: ReactNode; body: ReactNode; foot?: ReactNode; className?: string }) {
+export function DockLayout({ head, summary, body, foot, className, bodyKey }: { head?: ReactNode; summary?: ReactNode; body: ReactNode; foot?: ReactNode; className?: string; /** A new key starts the scrolling body at the top (a new question or its feedback). */ bodyKey?: string }) {
   const { collapsed } = useDock();
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col gap-2.5 lg:block lg:space-y-4", className)}>
       {head}
       {summary && collapsed && <div className="lg:hidden">{summary}</div>}
-      <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain max-lg:-mx-1 max-lg:px-1 lg:overflow-visible", collapsed && "hidden lg:block")}>{body}</div>
+      <div key={bodyKey} className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain max-lg:-mx-1 max-lg:px-1 lg:overflow-visible", collapsed && "hidden lg:block")}>{body}</div>
       {foot && <div className="flex-none">{foot}</div>}
     </div>
   );

@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, ChevronDown, RotateCcw } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
 import type { CritiqueActivity, Evaluation, Verdict } from "@/domain/types";
 import { cn } from "@/components/ui";
 import { playSfx } from "@/components/sfx";
 import { useI18n } from "@/i18n";
 import type { CritiqueReviews } from "./Critique";
+import { ExampleNote, WhyDetails } from "./StepFeedback";
 
 /** Ship review: one expandable ticket per element, closed when verdict and reason were judged right, reopened otherwise. */
 export function CritiqueReview({
@@ -46,7 +47,7 @@ export function CritiqueReview({
               className="flex w-full items-center gap-3.5 rounded-[16px] bg-transparent px-4 py-3.5 text-start active:translate-y-px"
             >
               <span aria-hidden className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]", ok ? "bg-ok-bg text-ok" : "bg-bad-bg text-bad")}>
-                {ok ? <Check size={16} strokeWidth={2.6} /> : <RotateCcw size={16} strokeWidth={2.6} />}
+                {ok ? <Check size={16} strokeWidth={2.6} /> : <X size={16} strokeWidth={2.6} />}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block font-mono text-[11px] text-muted">{tr("Element {n}", { n: i + 1 })}</span>
@@ -59,13 +60,10 @@ export function CritiqueReview({
               <div id={bodyId} className="flex animate-rise flex-col gap-2.5 px-4 pb-4 sm:ps-[62px]">
                 <div className="flex flex-wrap gap-2 font-mono text-xs text-fg">
                   <span className="rounded-lg bg-raised px-2.5 py-1">{tr("You")} · {you}</span>
-                  <span className="rounded-lg bg-raised px-2.5 py-1">{tr("Expected")} · {expected}</span>
+                  {!ok && <span className="rounded-lg bg-ok-bg px-2.5 py-1 text-ok">{tr("Expected")} · {expected}</span>}
                 </div>
-                <p className="leading-relaxed text-fg">{h.explanation}</p>
-                <p className="leading-relaxed text-muted">
-                  <span className="font-semibold text-fg">{tr("Suggested improvement.")} </span>
-                  {h.improvement}
-                </p>
+                <ExampleNote label={tr("On this screen")}>{h.explanation}</ExampleNote>
+                <WhyDetails label={tr("Better version")}>{h.improvement}</WhyDetails>
                 {rv?.note && <p className="text-xs text-subtle">{tr("Your note (stored, not assessed): “{note}”", { note: rv.note })}</p>}
               </div>
             )}

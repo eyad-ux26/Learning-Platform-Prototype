@@ -3,30 +3,33 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { GitFork, Layers, Lock, Play, RotateCcw, ScanSearch, Search, SearchX, Trophy, type LucideIcon } from "lucide-react";
+import { ArrowRight, Award, Check, Flame, GitFork, Layers, Lock, MapPin, Play, RotateCcw, ScanSearch, Search, SearchX, Trophy, type LucideIcon } from "lucide-react";
 import { FLAGSHIP_ID } from "@/content/flagship";
-import { accessLabel, isSubscriptionActive } from "@/domain/access";
-import { RANKS, REP } from "@/domain/progression";
-import { recommendNext } from "@/domain/recommend";
+import { BADGES } from "@/domain/badges";
+import { RANKS } from "@/domain/progression";
 import type { ActivityTemplate } from "@/domain/types";
 import { useI18n } from "@/i18n";
+import { dateLocale } from "@/i18n/core";
 import { useApp, visibleLibrary } from "@/state/AppState";
-import { Badge, Button, EmptyState, Frame, Handles, Kbd, inputClass, cn } from "@/components/ui";
+import { Badge, Button, EmptyState, Frame, Kbd, inputClass, cn } from "@/components/ui";
 import { SkillRing } from "@/components/SkillRing";
+import { BadgeMedal } from "@/components/BadgeMedal";
 import { PathCard, pathCode, pathProgressState } from "@/learner/PathCard";
-import { StreakPill } from "@/learner/StatPills";
+import { PathMap } from "@/learner/PathMap";
+import { useBadges } from "@/learner/useBadges";
 import { useProgression } from "@/learner/useProgression";
+import { currentPath, nextStep } from "@/learner/whereAmI";
 
 const TEMPLATE_ICON: Record<ActivityTemplate, LucideIcon> = { "design-bench": Layers, critique: ScanSearch, decision: GitFork };
-const code = (prefix: string, i: number) => `${prefix}-${String(i + 1).padStart(2, "0")}`;
 
 type Filter = "all" | "active" | "sample";
 
 export default function HomePage() {
   const router = useRouter();
   const { state, learner } = useApp();
-  const { tr, L, dateTime } = useI18n();
+  const { tr, locale } = useI18n();
   const progression = useProgression();
+  const badges = useBadges();
   const library = useMemo(() => visibleLibrary(state, learner), [state, learner]);
   const [query, setQuery] = useState("");
   const [topic, setTopic] = useState("all");
@@ -50,150 +53,223 @@ export default function HomePage() {
     setFilter("all");
   };
 
-  const flagship = library.find((v) => v.bundle.meta.id === FLAGSHIP_ID);
-  const resume = learner.lastLocation && learner.drafts[learner.lastLocation.href.split("/").pop() ?? ""] ? learner.lastLocation : undefined;
-  const rec = flagship ? recommendNext({ bundle: flagship.bundle, evidence: flagship.pathEvidence, attempts: flagship.pathAttempts, canAccess: flagship.canAccess }) : undefined;
-  const recActivity = rec?.type === "activity" ? flagship!.bundle.activities.find((a) => a.id === rec.activityId) : undefined;
-  const resumeActivity = resume && flagship ? flagship.bundle.activities.find((a) => a.id === resume.href.split("/").pop()) : undefined;
-  const heroActivity = resumeActivity ?? recActivity;
-  const reopened = (flagship?.bundle.skills ?? [])
-    .map((skill, index) => ({ skill, index }))
-    .filter(({ skill }) => {
-      const p = flagship!.progress[skill.id];
-      return p.practiceRecommended || (p.status === "developing" && p.lastResult?.met === false);
-    });
+  // Where the learner is: their current path and the one next thing to do in it.
+  const path = currentPath(library, learner);
+  const step = path ? nextStep(path, learner) : undefined;
+  const activity = step?.activity;
+  const activityNo = activity && path ? path.bundle.activities.indexOf(activity) + 1 : 0;
   const isNew = learner.attempts.length === 0 && Object.keys(learner.viewedConcepts).length === 0;
   const firstName = learner.name.split(" ")[0];
-  const subscribed = isSubscriptionActive(learner.access);
+  const complete = !!path?.completion.complete;
+  const reopened = path
+    ? path.bundle.skills.map((skill, index) => ({ skill, index })).filter(({ skill }) => {
+        const p = path.progress[skill.id];
+        return p && (p.practiceRecommended || (p.status === "developing" && p.lastResult?.met === false));
+      })
+    : [];
+  const otherActive = library.filter((v) => v !== path && pathProgressState(v, learner) !== "not-started");
 
   // The one primary action on this screen. Enter triggers it when nothing else has focus.
-  const heroHref = resume && resumeActivity ? resume.href : heroActivity ? `/paths/${FLAGSHIP_ID}/practice/${heroActivity.id}` : rec?.type === "review" ? `/paths/${FLAGSHIP_ID}/skills` : `/paths/${FLAGSHIP_ID}`;
+  const heroHref = step?.href ?? "/";
   useEffect(() => {
-    if (!flagship) return;
+    if (!path) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && !e.altKey && e.target === document.body) router.push(heroHref);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [flagship, heroHref, router]);
+  }, [path, heroHref, router]);
 
-  // Progress through the contexts a path needs: one bar per required context.
-  const required = (flagship?.bundle.requiredSkillIds ?? []).map((id) => flagship!.progress[id]);
-  const totalBars = required.reduce((n, p) => n + p.requiredContexts, 0);
-  const metBars = required.reduce((n, p) => n + Math.min(p.contextsMet.length, p.requiredContexts), 0);
-  const HeroIcon = heroActivity ? TEMPLATE_ICON[heroActivity.template] : Trophy;
-  const heroIndex = heroActivity ? flagship!.bundle.activities.findIndex((a) => a.id === heroActivity.id) : 0;
+  const HeroIcon = activity ? TEMPLATE_ICON[activity.template] : Trophy;
+  const ctaLabel = step?.resume ? tr("Resume") : complete && !activity ? tr("View certificate") : isNew ? tr("Start") : tr("Continue");
   const goalPct = Math.min(1, progression.repToday / progression.dailyGoal);
-  const goalC = 2 * Math.PI * 34;
+  const goalC = 2 * Math.PI * 30;
+  const weekday = (offset: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - offset));
+    return d.toLocaleDateString(dateLocale(locale), { weekday: "narrow" });
+  };
+  const earnedIds = new Set(badges.map((b) => b.id));
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
-      {/* Hero row */}
-      <section className="grid gap-10 lg:grid-cols-3 lg:gap-7">
-        <Frame name={`${tr("Next brief")}${heroActivity ? ` · ${code("BR", heroIndex)}` : ""}`} className="mt-6 min-w-0 lg:col-span-2 lg:mt-0">
-          <Handles className="relative flex flex-wrap items-center gap-x-8 gap-y-6 rounded-[26px] bg-brand p-6 sm:p-[34px]">
-            <svg className="cursor-drift absolute bottom-7 end-8 hidden sm:block" width="26" height="26" viewBox="0 0 24 24" fill="#fff" stroke="#2b2370" strokeWidth="1.4" strokeLinejoin="round" aria-hidden>
-              <path d="M4 3l7 17 2.5-7.5L21 10z" />
-            </svg>
-            <div className="floaty flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-[26px] bg-white sm:h-[118px] sm:w-[118px] sm:rounded-[30px]" aria-hidden>
-              <HeroIcon className="h-11 w-11 text-brand sm:h-[60px] sm:w-[60px]" strokeWidth={1.8} />
-            </div>
-            <section aria-labelledby="welcome" className="min-w-0 flex-1 basis-72">
-              <p className="font-mono text-xs font-semibold text-[#d4cfff]">{isNew ? tr("Welcome, {name}", { name: firstName }) : tr("Welcome back, {name}", { name: firstName })}</p>
-              {heroActivity ? (
-                <>
-                  <h1 id="welcome" className="mt-3 text-[34px] font-extrabold leading-[.98] tracking-[-0.03em] text-white sm:text-5xl lg:text-[52px]">{heroActivity.title}</h1>
-                  <p className="mt-2 font-mono text-xs text-[#dcd8ff]">
-                    {flagship!.bundle.meta.title} · {resume ? tr("Unfinished response saved {when}.", { when: dateTime(resume.at) }) : isNew ? tr("Free sample · covers all four skills") : rec?.type === "activity" ? L(rec.reason) : ""}
-                  </p>
-                  {/* The client's ask, kept to two lines so the title stays the first thing read. */}
-                  <div className="mt-4 flex max-w-xl items-end gap-2">
-                    <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-sk-amber text-[11px] font-bold text-[#2b1f00]" aria-hidden>{(heroActivity.brief?.from ?? heroActivity.contextLabel).trim()[0]}</span>
-                    <p className="line-clamp-2 rounded-[14px] rounded-es-sm bg-white/[.14] px-3 py-2 text-[13px] leading-snug text-white/90">{heroActivity.brief?.ask ?? heroActivity.task}</p>
-                  </div>
-                </>
-              ) : rec?.type === "complete" && flagship ? (
-                <h1 id="welcome" className="mt-3 text-4xl font-extrabold leading-[.98] tracking-[-0.03em] text-white sm:text-5xl">{tr("You completed {title}", { title: flagship.bundle.meta.title })}</h1>
-              ) : rec?.type === "review" ? (
-                <>
-                  <h1 id="welcome" className="mt-3 text-4xl font-extrabold leading-[.98] tracking-[-0.03em] text-white sm:text-5xl">{tr("Review and retry")}</h1>
-                  <p className="mt-1.5 font-mono text-xs text-[#dcd8ff]">{L(rec.reason)}</p>
-                </>
-              ) : (
-                <h1 id="welcome" className="mt-3 text-4xl font-extrabold leading-[.98] tracking-[-0.03em] text-white sm:text-5xl">{tr("Learn by making real design calls.")}</h1>
-              )}
-              {totalBars > 0 && (
-                <div className="mb-6 mt-[18px] flex gap-1.5" role="img" aria-label={tr("{n} of {m} contexts met", { n: metBars, m: totalBars })}>
-                  {Array.from({ length: totalBars }, (_, i) => (
-                    <span key={i} className={cn("h-2 w-8 rounded-full", i < metBars ? "bg-white" : i === metBars ? "bg-sk-amber" : "bg-white/[.28]")} />
-                  ))}
-                </div>
-              )}
-              <Link
-                href={heroHref}
-                className="press inline-flex items-center gap-3 rounded-[14px] bg-white py-3.5 pe-4 ps-[22px] text-[17px] font-bold text-[#2b2370] hover:text-[#2b2370]"
-              >
-                {heroActivity && rec?.type === "activity" && rec.locked && !resume ? <Lock size={17} aria-hidden /> : <Play size={18} fill="currentColor" aria-hidden />}
-                {resume && resumeActivity ? tr("Resume activity") : heroActivity ? tr("Continue") : rec?.type === "review" ? tr("See skill progress") : tr("Path overview")}
-                <Kbd className="border-[#c9c3ff] px-2 py-0.5 text-xs text-brand">↵</Kbd>
-              </Link>
-            </section>
-          </Handles>
-        </Frame>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+      <p className="font-mono text-xs font-semibold text-accent">{isNew ? tr("Welcome, {name}", { name: firstName }) : tr("Welcome back, {name}", { name: firstName })}</p>
 
-        <div className="flex min-w-0 flex-col gap-8">
-          <Frame name={tr("Today")} className="mt-6 lg:mt-0">
-            <div className="rounded-[22px] border border-line bg-surface p-5">
-              <div className="flex items-center gap-[18px]">
-                <span className="relative h-[84px] w-[84px] shrink-0" role="img" aria-label={tr("{n} of {m} Rep today", { n: progression.repToday, m: progression.dailyGoal })}>
-                  <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden>
-                    <circle cx="42" cy="42" r="34" fill="none" stroke="#2c2c36" strokeWidth="10" />
-                    <circle cx="42" cy="42" r="34" fill="none" stroke="#ffc94d" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${goalPct * goalC} ${goalC}`} transform="rotate(-90 42 42)" style={{ transition: "stroke-dasharray .4s ease" }} />
-                  </svg>
-                  <span className="absolute inset-0 flex items-center justify-center font-mono text-[17px] font-semibold">{progression.repToday}</span>
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-display text-[22px] font-extrabold">{tr("Daily goal")}</span>
-                  <span dir="ltr" className="inline-block font-mono text-[13px] text-muted">{progression.repToday} / {progression.dailyGoal} Rep</span>
-                </span>
-              </div>
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4">
-                <StreakPill p={progression} className="sm:hidden" />
-                <Link href={subscribed ? "/account" : "/subscribe"}>
-                  <Badge tone={subscribed ? "ok" : learner.access.plan === "expired" ? "warn" : "neutral"}>{L(accessLabel(learner.access))}</Badge>
+      <div className="mt-3 grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex min-w-0 flex-col gap-10">
+          {/* You are here: the current path, the next activity and one button */}
+          {path && (
+            <Frame name={tr("You are here")} tagClassName="text-accent" className="mt-6">
+              <section aria-labelledby="welcome" className="relative rounded-[26px] bg-brand p-5 text-white sm:p-7">
+                <Link href={`/paths/${path.bundle.meta.id}`} className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 font-mono text-xs font-semibold text-white hover:bg-white/25 hover:text-white">
+                  <MapPin size={13} aria-hidden className="shrink-0" />
+                  <span className="truncate">{path.bundle.meta.title}</span>
+                  {activityNo > 0 && <span className="shrink-0 text-[#dcd8ff]">· {tr("Activity {n} of {m}", { n: activityNo, m: path.bundle.activities.length })}</span>}
                 </Link>
-              </div>
-              <p className="mt-3 text-xs text-subtle">{tr("Rep, streak and rank are prototype scoring from your own attempts. They never change a skill’s status.")}</p>
-            </div>
-          </Frame>
-
-          {reopened.length > 0 && flagship && (
-            <Frame name={tr("Reopened")} tagClassName="text-[#ff9d82]">
-              <ul className="space-y-3">
-                {reopened.map(({ skill, index }) => (
-                  <li key={skill.id}>
-                    <Link href={`/paths/${FLAGSHIP_ID}/skills`} className="press pulse-coral flex items-center gap-4 rounded-[22px] border-[1.5px] border-sk-coral bg-bad-bg p-5 text-fg hover:text-fg">
-                      <SkillRing index={index} progress={flagship.progress[skill.id]} size={60} track="#3a2620" />
-                      <span className="min-w-0">
-                        <span className="block font-display text-[21px] font-extrabold leading-tight">{skill.name}</span>
-                        <span className="flex items-center gap-1.5 font-mono text-xs text-[#ffb8a5]">
-                          <RotateCcw size={13} aria-hidden /> {tr("Worth another go")}
-                        </span>
-                      </span>
+                <div className="mt-4 flex items-start gap-4">
+                  <span className="floaty hidden h-[76px] w-[76px] shrink-0 items-center justify-center rounded-[22px] bg-white sm:flex" aria-hidden>
+                    <HeroIcon className="h-10 w-10 text-brand" strokeWidth={1.8} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h1 id="welcome" className="text-[30px] font-extrabold leading-[1.02] tracking-[-0.03em] sm:text-[40px]">
+                      {activity ? activity.title : complete ? tr("You completed {title}", { title: path.bundle.meta.title }) : tr("Review and retry")}
+                    </h1>
+                    {activity && (
+                      <p className="mt-3 max-w-xl rounded-[14px] rounded-es-sm bg-white/[.14] px-3 py-2 text-[13px] leading-snug text-white/90"><span className="line-clamp-2">{activity.brief?.ask ?? activity.task}</span></p>
+                    )}
+                  </div>
+                </div>
+                {/* Skills toward the certificate */}
+                {path.bundle.meta.availability === "full" && (
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <ul className="flex gap-1.5" aria-label={tr("{n}/{m} skills mastered", { n: path.completion.mastered.length, m: path.bundle.requiredSkillIds.length })}>
+                      {path.bundle.skills.map((s, i) => path.progress[s.id] && (
+                        <li key={s.id} title={s.name} className="rounded-full bg-[#101014]/40 p-0.5">
+                          <SkillRing index={i} progress={path.progress[s.id]} size={34} />
+                        </li>
+                      ))}
+                    </ul>
+                    <span className="font-mono text-xs font-semibold text-[#e4e0ff]">{tr("{n}/{m} skills mastered", { n: path.completion.mastered.length, m: path.bundle.requiredSkillIds.length })}</span>
+                    <ArrowRight size={14} aria-hidden className="text-[#dcd8ff]" />
+                    <Link href={`/paths/${path.bundle.meta.id}/certificate`} className="inline-flex items-center gap-1 font-mono text-xs font-semibold text-sk-amber hover:text-sk-amber">
+                      <Award size={14} aria-hidden /> {tr("Certificate")}
                     </Link>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs text-subtle">{tr("Your latest attempt missed a criterion. Each comes back in a different context.")}</p>
+                  </div>
+                )}
+                <Link href={heroHref} className="press mt-5 flex w-full items-center justify-center gap-3 rounded-[14px] bg-white py-3.5 text-[17px] font-bold text-[#2b2370] shadow-[0_5px_0_#4a3fb8] hover:text-[#2b2370] sm:inline-flex sm:w-auto sm:px-6">
+                  {activity && step?.rec?.type === "activity" && step.rec.locked ? <Lock size={17} aria-hidden /> : complete && !activity ? <Award size={18} aria-hidden /> : <Play size={18} fill="currentColor" aria-hidden />}
+                  {ctaLabel}
+                  <Kbd className="hidden border-[#c9c3ff] px-2 py-0.5 text-xs text-brand sm:inline">↵</Kbd>
+                </Link>
+              </section>
             </Frame>
           )}
-        </div>
-      </section>
 
-      {/* Specialisms */}
+          {/* The path as a map, around where the learner is */}
+          {path && path.bundle.activities.length > 0 && (
+            <Frame name={tr("Your path")} tagClassName="text-muted">
+              <section aria-label={tr("Your path")} className="rounded-[26px] border border-line bg-surface p-4 sm:p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="min-w-0 truncate text-lg font-extrabold">{path.bundle.meta.title}</h2>
+                  <Link href={`/paths/${path.bundle.meta.id}`} className="shrink-0 text-sm font-semibold text-accent hover:underline">{tr("Full path")}</Link>
+                </div>
+                <PathMap view={path} learner={learner} currentId={activity?.id} window={5} className="mt-3" />
+              </section>
+            </Frame>
+          )}
+
+          {otherActive.length > 0 && (
+            <section aria-labelledby="other-paths" className="flex flex-col gap-3">
+              <h2 id="other-paths" className="text-xl font-extrabold">{tr("Your other paths")}</h2>
+              <ul className="flex flex-col gap-2">
+                {otherActive.map((v) => {
+                  const n = nextStep(v, learner);
+                  const mastered = v.completion.mastered.length;
+                  const total = v.bundle.requiredSkillIds.length || v.bundle.skills.length;
+                  return (
+                    <li key={v.bundle.meta.id}>
+                      <Link href={n.href} className="press flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 text-fg hover:text-fg">
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-semibold">{v.bundle.meta.title}</span>
+                          <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-line" aria-hidden>
+                            <span className="block h-full rounded-full bg-brand-strong" style={{ width: `${(mastered / Math.max(1, total)) * 100}%` }} />
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-mono text-xs text-muted">{tr("{n}/{m} skills mastered", { n: mastered, m: total })}</span>
+                        <ArrowRight size={16} aria-hidden className="shrink-0 text-accent" />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+        </div>
+
+        {/* Side: today, badges, reopened, rank */}
+        <aside className="flex min-w-0 flex-col gap-8 lg:pt-6" aria-label={tr("Your progress")}>
+          <section aria-labelledby="today" className="rounded-[22px] border border-line bg-surface p-5">
+            <div className="flex items-center gap-4">
+              <span className="relative h-[72px] w-[72px] shrink-0" role="img" aria-label={tr("{n} of {m} Rep today", { n: progression.repToday, m: progression.dailyGoal })}>
+                <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden>
+                  <circle cx="36" cy="36" r="30" fill="none" stroke="#2c2c36" strokeWidth="9" />
+                  <circle cx="36" cy="36" r="30" fill="none" stroke="#ffc94d" strokeWidth="9" strokeLinecap="round" strokeDasharray={`${goalPct * goalC} ${goalC}`} transform="rotate(-90 36 36)" style={{ transition: "stroke-dasharray .4s ease" }} />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center font-mono text-[15px] font-semibold">{progression.repToday}</span>
+              </span>
+              <span className="min-w-0">
+                <span id="today" className="block font-display text-xl font-extrabold">{tr("Daily goal")}</span>
+                <span dir="ltr" className="inline-block font-mono text-[13px] text-muted">{progression.repToday} / {progression.dailyGoal} Rep</span>
+              </span>
+            </div>
+            {/* The week: a flame on each day practised */}
+            <ol className="mt-4 grid grid-cols-7 gap-1 border-t border-line pt-4" aria-label={tr("Practice streak: {n} days", { n: progression.streakDays })}>
+              {progression.last7.map((d, i) => (
+                <li key={i} className="flex flex-col items-center gap-1">
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-full",
+                      d === "done" ? "bg-sk-coral text-[#2b0f06]" : d === "freeze" ? "bg-sk-sky/25 text-sk-sky" : "border border-dashed border-line-strong text-subtle",
+                      i === 6 && "ring-2 ring-white/60",
+                    )}
+                  >
+                    {d === "done" ? <Flame size={15} aria-hidden /> : d === "freeze" ? <Check size={13} aria-hidden /> : null}
+                    <span className="sr-only">{d === "done" ? tr("Practised") : d === "freeze" ? tr("Freeze") : tr("No practice")}</span>
+                  </span>
+                  <span className="font-mono text-[10.5px] text-subtle" aria-hidden>{weekday(i)}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-3 flex items-center gap-1.5 text-sm font-semibold"><Flame size={15} className="text-sk-coral" aria-hidden /> {tr("{n}-day streak", { n: progression.streakDays })}</p>
+          </section>
+
+          <section aria-labelledby="badges" className="rounded-[22px] border border-line bg-surface p-5">
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 id="badges" className="font-display text-xl font-extrabold">{tr("Badges")}</h2>
+              <span className="font-mono text-xs text-muted">{tr("{n} of {m}", { n: earnedIds.size, m: BADGES.length })}</span>
+            </div>
+            <ul className="mt-3 grid grid-cols-4 gap-y-3">
+              {BADGES.map((b) => (
+                <li key={b.id} className="flex justify-center"><BadgeMedal id={b.id} earned={earnedIds.has(b.id)} size={44} /></li>
+              ))}
+            </ul>
+          </section>
+
+          {reopened.length > 0 && path && (
+            <section aria-labelledby="reopened" className="flex flex-col gap-2">
+              <h2 id="reopened" className="flex items-center gap-2 font-mono text-xs font-semibold text-[#ff9d82]"><RotateCcw size={13} aria-hidden /> {tr("Worth another go")}</h2>
+              {reopened.map(({ skill, index }) => (
+                <Link key={skill.id} href={`/paths/${path.bundle.meta.id}/skills`} className="press pulse-coral flex items-center gap-3 rounded-[18px] border-[1.5px] border-sk-coral bg-bad-bg p-3 text-fg hover:text-fg">
+                  <SkillRing index={index} progress={path.progress[skill.id]} size={44} track="#3a2620" />
+                  <span className="min-w-0 font-semibold leading-tight">{skill.name}</span>
+                </Link>
+              ))}
+            </section>
+          )}
+
+          <section aria-labelledby="career" className="rounded-[22px] border border-line bg-surface p-5">
+            <h2 id="career" className="font-display text-xl font-extrabold">{tr("Career")}</h2>
+            <ol className="mt-3 flex gap-1">
+              {RANKS.map((r, i) => {
+                const cur = i === progression.rankIndex;
+                const past = i < progression.rankIndex;
+                return (
+                  <li key={r.id} aria-current={cur ? "step" : undefined} title={tr(r.name)} className={cn("h-2 flex-1 rounded-full", past ? "bg-brand" : cur ? "bg-brand-strong" : "bg-line")}>
+                    <span className="sr-only">{tr(r.name)}{cur ? ` · ${tr("you")}` : ""}</span>
+                  </li>
+                );
+              })}
+            </ol>
+            <p className="mt-2 text-sm"><span className="font-semibold">{tr(progression.rank.name)}</span>{progression.next && <span className="text-muted"> → {tr(progression.next.name)}</span>}</p>
+            <p className="mt-3 text-xs text-subtle">{tr("Rep, streak, rank and badges are prototype scoring from your own attempts. They never change a skill’s status.")}</p>
+          </section>
+        </aside>
+      </div>
+
+      {/* All paths */}
       <section aria-labelledby="library" className="mt-14 flex flex-col gap-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <h2 id="library" className="text-[32px] font-extrabold tracking-tight">{tr("Specialisms")}</h2>
+          <h2 id="library" className="text-[28px] font-extrabold tracking-tight">{tr("All paths")}</h2>
           <div role="group" aria-label={tr("Filter")} className="flex gap-1 rounded-xl border border-line bg-raised p-1">
             {(
               [
@@ -222,9 +298,7 @@ export default function HomePage() {
             </select>
           </div>
         </div>
-        <p className="font-mono text-xs text-subtle" aria-live="polite">
-          {filtersActive ? tr("{n} of {m} paths match", { n: filtered.length, m: library.length }) : tr("Free samples are marked on each path. Everything else is included with one subscription.")}
-        </p>
+        {filtersActive && <p className="font-mono text-xs text-subtle" aria-live="polite">{tr("{n} of {m} paths match", { n: filtered.length, m: library.length })}</p>}
 
         {filtered.length === 0 ? (
           <EmptyState title={tr("No paths match these filters")} icon={<SearchX size={28} />} action={<Button variant="primary" onClick={resetFilters}>{tr("Reset search and filters")}</Button>}>
@@ -241,29 +315,9 @@ export default function HomePage() {
         )}
         {library.some((v) => v.bundle.meta.availability === "preview") && (
           <p className="flex items-center gap-2 text-xs text-subtle">
-            <Badge tone="warn">{tr("Preview")}</Badge> {tr("Paths marked Preview have an overview and one free sample activity in this prototype. Their full content is not included.")}
+            <Badge tone="warn">{tr("Preview")}</Badge> {tr("Preview paths are not included in this prototype: an overview and one free sample only.")}
           </p>
         )}
-      </section>
-
-      {/* Career */}
-      <section aria-labelledby="career" className="mt-14 flex flex-col gap-4">
-        <h2 id="career" className="text-2xl font-extrabold">{tr("Career")}</h2>
-        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <ol className="grid min-w-[560px] grid-cols-5 gap-2">
-            {RANKS.map((r, i) => {
-              const cur = i === progression.rankIndex;
-              const past = i < progression.rankIndex;
-              return (
-                <li key={r.id} aria-current={cur ? "step" : undefined} className={cn("flex flex-col gap-1 rounded-[14px] border px-4 py-3.5", cur ? "border-brand bg-brand text-white" : past ? "border-line bg-[#202028] text-fg" : "border-dashed border-line text-[#6f6e7f]")}>
-                  <span className="font-mono text-[11px] opacity-80">R{i + 1}{cur ? ` · ${tr("you")}` : ""}</span>
-                  <span className="font-semibold">{tr(r.name)}</span>
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-        <p className="text-xs text-subtle">{tr("Ranks are a prototype of progression, not a credential. Rep comes from your own attempts: {a} per new response, {b} per met criterion without hints and {c} per Mastered skill.", { a: REP.attempt, b: REP.metIndependent, c: REP.mastered })}</p>
       </section>
     </div>
   );
